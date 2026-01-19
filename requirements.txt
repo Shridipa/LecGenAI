@@ -13,3 +13,4 @@ pdfplumber
 python-docx
 streamlit
 static-ffmpeg
+audioop-lts
