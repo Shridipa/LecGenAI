@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+uploads/
+outputs/
+.env
+.DS_Store
+.streamlit/
+ffmpeg/
+node_modules/
