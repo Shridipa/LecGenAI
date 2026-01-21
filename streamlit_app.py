@@ -107,7 +107,11 @@ st.markdown("""
 
 @st.cache_resource
 def download_nltk():
-    nltk.download("punkt")
+    try:
+        nltk.download("punkt", quiet=True)
+        nltk.download("punkt_tab", quiet=True)
+    except Exception:
+        pass
 
 download_nltk()
 
