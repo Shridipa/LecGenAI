@@ -215,25 +215,48 @@ def summarize_text(transcript):
     if not chunks: return ""
     
     summarizer = get_summarizer()
-    try:
-        results = summarizer(chunks, max_length=250, min_length=80, do_sample=False, batch_size=4)
-        return "\n".join(f"- {res['summary_text']}" for res in results)
-    except Exception as e:
-        summaries = []
-        for ch in chunks:
-            out = summarizer(ch, max_length=250, min_length=80, do_sample=False)
+    summaries = []
+    for ch in chunks:
+        # Dynamic length adjustment for short text
+        input_len = len(ch.split())
+        curr_max = min(250, int(input_len * 0.8))
+        curr_min = min(80, int(input_len * 0.2))
+        
+        # Ensure min < max
+        if curr_max <= curr_min:
+            curr_max = input_len
+            curr_min = 10 if input_len > 10 else 1
+            
+        try:
+            out = summarizer(ch, max_length=curr_max, min_length=curr_min, do_sample=False)
             summaries.append(out[0]["summary_text"])
-        return "\n".join(f"- {s}" for s in summaries)
+        except Exception:
+            # Fallback for extremely short text
+            summaries.append(ch[:200] + "...")
+            
+    return "\n".join(f"- {s}" for s in summaries)
 
 def generate_notes(transcript):
     chunks = chunk_text_by_sentences(transcript, max_chars=900)
     if not chunks: return ""
     summarizer = get_notes_summarizer()
-    try:
-        results = summarizer(chunks, max_length=128, min_length=40, do_sample=False, batch_size=4)
-        return "\n".join(f"- {res['summary_text']}" for res in results)
-    except Exception as e:
-        return "Notes generation failed. Try balanced or accurate mode."
+    notes = []
+    for ch in chunks:
+        input_len = len(ch.split())
+        curr_max = min(128, int(input_len * 0.8))
+        curr_min = min(40, int(input_len * 0.2))
+        
+        if curr_max <= curr_min:
+            curr_max = input_len
+            curr_min = 5 if input_len > 5 else 1
+            
+        try:
+            out = summarizer(ch, max_length=curr_max, min_length=curr_min, do_sample=False)
+            notes.append(out[0]["summary_text"])
+        except Exception:
+            notes.append(ch[:150] + "...")
+            
+    return "\n".join(f"- {n}" for n in notes)
 
 def generate_quiz(transcript, max_questions=8):
     words = transcript.split()
