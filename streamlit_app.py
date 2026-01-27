@@ -25,7 +25,7 @@ print(f"Torch Cuda Available: {torch.cuda.is_available()}")
 from pydub import AudioSegment
 import whisper
 import nltk
-from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer, AutoModelForQuestionAnswering
 import uuid
 import time
 from threading import Lock
@@ -186,17 +186,74 @@ def get_notes_summarizer():
 
 @st.cache_resource
 def get_qg_generator():
+    model_name = "valhalla/t5-base-e2e-qg"
     kwargs = {"device": device} if device == 0 else {}
     if device == 0:
         kwargs["torch_dtype"] = torch.float16
-    return pipeline("text2text-generation", model="valhalla/t5-base-e2e-qg", framework="pt", **kwargs)
+    
+    try:
+        return pipeline("text2text-generation", model=model_name, framework="pt", **kwargs)
+    except Exception as e:
+        print(f"⚠️ Pipeline failed for QG: {e}. Fallback to manual.")
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+            if device == 0:
+                model = model.to(device).half()
+                
+            def manual_qg(text, **gen_kwargs):
+                inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True).to(model.device)
+                out = model.generate(inputs["input_ids"], **gen_kwargs)
+                decoded = tokenizer.decode(out[0], skip_special_tokens=True)
+                return [{"generated_text": decoded}]
+            return manual_qg
+        except Exception as e2:
+            st.error(f"Failed to load QG model: {e2}")
+            return None
 
 @st.cache_resource
 def get_qa_answerer():
+    model_name = "deepset/roberta-base-squad2"
     kwargs = {"device": device} if device == 0 else {}
     if device == 0:
         kwargs["torch_dtype"] = torch.float16
-    return pipeline("question-answering", model="deepset/roberta-base-squad2", framework="pt", **kwargs)
+        
+    try:
+        return pipeline("question-answering", model=model_name, framework="pt", **kwargs)
+    except Exception as e:
+        print(f"⚠️ Pipeline failed for QA: {e}. Fallback to manual.")
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForQuestionAnswering.from_pretrained(model_name)
+            if device == 0:
+                model = model.to(device).half()
+                
+            def manual_qa(question=None, context=None, **kwargs):
+                if not question or not context: return {'score': 0, 'answer': ''}
+                inputs = tokenizer(question, context, return_tensors="pt", truncation=True, max_length=512).to(model.device)
+                with torch.no_grad():
+                    outputs = model(**inputs)
+                
+                # Get best span
+                start_scores = torch.softmax(outputs.start_logits, dim=1)
+                end_scores = torch.softmax(outputs.end_logits, dim=1)
+                
+                start_idx = torch.argmax(start_scores)
+                end_idx = torch.argmax(end_scores)
+                
+                score = (start_scores[0][start_idx] * end_scores[0][end_idx]).item()
+                
+                # Check for invalid span
+                if end_idx < start_idx:
+                    return {'score': score, 'answer': ''}
+                    
+                tokens = inputs.input_ids[0][start_idx : end_idx + 1]
+                answer = tokenizer.decode(tokens, skip_special_tokens=True)
+                return {'score': score, 'answer': answer}
+            return manual_qa
+        except Exception as e2:
+            st.error(f"Failed to load QA model: {e2}")
+            return None
 
 def handle_youtube(url):
     uid = str(uuid.uuid4())[:8]
