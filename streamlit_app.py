@@ -1,15 +1,21 @@
 import streamlit as st
 import os
 import subprocess
+import torch
+import sys
+
+# DEBUG: Check environment
+print(f"Python Version: {sys.version}")
+print(f"Torch Version: {torch.__version__}")
+print(f"Torch Cuda Available: {torch.cuda.is_available()}")
+
 from pydub import AudioSegment
 import whisper
 import nltk
-from transformers import pipeline
-import torch
+from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
 import uuid
 import time
 from threading import Lock
-
 def inject_ffmpeg():
     potential_paths = []
     
@@ -126,33 +132,58 @@ device = 0 if torch.cuda.is_available() else -1
 def get_whisper_model(model_name='base'):
     return whisper.load_model(model_name)
 
-@st.cache_resource
-def get_summarizer():
+def _create_summarizer(model_name):
     kwargs = {"device": device} if device == 0 else {}
     if device == 0:
         kwargs["torch_dtype"] = torch.float16
-    return pipeline("summarization", model="facebook/bart-large-cnn", **kwargs)
+        
+    try:
+        return pipeline("summarization", model=model_name, framework="pt", **kwargs)
+    except Exception as e:
+        print(f"⚠️ Pipeline creation failed for {model_name}: {e}. Falling back to manual loading.")
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+            if device == 0:
+                model = model.to(device).half()
+                
+            def manual_summ(text, **gen_kwargs):
+                # Defaults
+                if "max_length" not in gen_kwargs: gen_kwargs["max_length"] = 150
+                if "min_length" not in gen_kwargs: gen_kwargs["min_length"] = 40
+                if "do_sample" not in gen_kwargs: gen_kwargs["do_sample"] = False
+                
+                inputs = tokenizer(text, return_tensors="pt", max_length=1024, truncation=True).to(model.device)
+                summary_ids = model.generate(inputs["input_ids"], **gen_kwargs)
+                summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+                return [{"summary_text": summary}]
+                
+            return manual_summ
+        except Exception as e2:
+            st.error(f"Critical error loading {model_name}: {e2}")
+            return None
+
+@st.cache_resource
+def get_summarizer():
+    return _create_summarizer("facebook/bart-large-cnn")
 
 @st.cache_resource
 def get_notes_summarizer():
-    kwargs = {"device": device} if device == 0 else {}
-    if device == 0:
-        kwargs["torch_dtype"] = torch.float16
-    return pipeline("summarization", model="philschmid/bart-large-cnn-samsum", **kwargs)
+    return _create_summarizer("philschmid/bart-large-cnn-samsum")
 
 @st.cache_resource
 def get_qg_generator():
     kwargs = {"device": device} if device == 0 else {}
     if device == 0:
         kwargs["torch_dtype"] = torch.float16
-    return pipeline("text2text-generation", model="valhalla/t5-base-e2e-qg", **kwargs)
+    return pipeline("text2text-generation", model="valhalla/t5-base-e2e-qg", framework="pt", **kwargs)
 
 @st.cache_resource
 def get_qa_answerer():
     kwargs = {"device": device} if device == 0 else {}
     if device == 0:
         kwargs["torch_dtype"] = torch.float16
-    return pipeline("question-answering", model="deepset/roberta-base-squad2", **kwargs)
+    return pipeline("question-answering", model="deepset/roberta-base-squad2", framework="pt", **kwargs)
 
 def handle_youtube(url):
     uid = str(uuid.uuid4())[:8]

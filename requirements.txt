@@ -1,8 +1,7 @@
 numpy
 tqdm
-torch
-sentencepiece
-transformers
+torch>=2.0.0
+transformers[sentencepiece,torch]>=4.46.0
 accelerate
 pydub
 rich
@@ -13,4 +12,3 @@ pdfplumber
 python-docx
 streamlit
 static-ffmpeg
-audioop-lts
