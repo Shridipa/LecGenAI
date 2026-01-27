@@ -1,6 +1,19 @@
 import streamlit as st
 import os
 import subprocess
+import sys
+
+# Compat for Python 3.13+ which removed audioop
+if sys.version_info >= (3, 13):
+    try:
+        import audioop # noqa: F401
+    except ImportError:
+        try:
+            import pyaudioop as audioop # noqa: F401
+            sys.modules["audioop"] = audioop
+        except ImportError:
+            pass
+
 import torch
 import sys
 
