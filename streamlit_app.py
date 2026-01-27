@@ -2,6 +2,10 @@ import streamlit as st
 import os
 import subprocess
 import sys
+import torch
+import uuid
+import time
+from threading import Lock
 
 # Compat for Python 3.13+ which removed audioop
 if sys.version_info >= (3, 13):
@@ -14,21 +18,11 @@ if sys.version_info >= (3, 13):
         except ImportError:
             pass
 
-import torch
-import sys
-
 # DEBUG: Check environment
 print(f"Python Version: {sys.version}")
 print(f"Torch Version: {torch.__version__}")
 print(f"Torch Cuda Available: {torch.cuda.is_available()}")
 
-from pydub import AudioSegment
-import whisper
-import nltk
-from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer, AutoModelForQuestionAnswering
-import uuid
-import time
-from threading import Lock
 def inject_ffmpeg():
     potential_paths = []
     
@@ -63,6 +57,13 @@ def inject_ffmpeg():
 
 FFMPEG_FOUND = inject_ffmpeg()
 FFMPEG_PATH = next((p for p in os.environ["PATH"].split(os.pathsep) if os.path.exists(os.path.join(p, "ffmpeg.exe"))), None)
+
+# Import pydub AFTER injecting ffmpeg path
+from pydub import AudioSegment
+import whisper
+import nltk
+from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer, AutoModelForQuestionAnswering
+
 
 st.set_page_config(
     page_title="LecGen AI - Smart Lecture Assistant",
