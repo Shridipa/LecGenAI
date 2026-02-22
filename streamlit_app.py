@@ -7,18 +7,16 @@ import uuid
 import time
 from threading import Lock
 
-# Compat for Python 3.13+ which removed audioop
 if sys.version_info >= (3, 13):
     try:
-        import audioop # noqa: F401
+        import audioop
     except ImportError:
         try:
-            import pyaudioop as audioop # noqa: F401
+            import pyaudioop as audioop
             sys.modules["audioop"] = audioop
         except ImportError:
             pass
 
-# DEBUG: Check environment
 print(f"Python Version: {sys.version}")
 print(f"Torch Version: {torch.__version__}")
 print(f"Torch Cuda Available: {torch.cuda.is_available()}")
@@ -58,7 +56,6 @@ def inject_ffmpeg():
 FFMPEG_FOUND = inject_ffmpeg()
 FFMPEG_PATH = next((p for p in os.environ["PATH"].split(os.pathsep) if os.path.exists(os.path.join(p, "ffmpeg.exe"))), None)
 
-# Import pydub AFTER injecting ffmpeg path
 from pydub import AudioSegment
 import whisper
 import nltk
@@ -162,7 +159,6 @@ def _create_summarizer(model_name):
                 model = model.to(device).half()
                 
             def manual_summ(text, **gen_kwargs):
-                # Defaults
                 if "max_length" not in gen_kwargs: gen_kwargs["max_length"] = 150
                 if "min_length" not in gen_kwargs: gen_kwargs["min_length"] = 40
                 if "do_sample" not in gen_kwargs: gen_kwargs["do_sample"] = False
@@ -235,7 +231,6 @@ def get_qa_answerer():
                 with torch.no_grad():
                     outputs = model(**inputs)
                 
-                # Get best span
                 start_scores = torch.softmax(outputs.start_logits, dim=1)
                 end_scores = torch.softmax(outputs.end_logits, dim=1)
                 
@@ -244,7 +239,6 @@ def get_qa_answerer():
                 
                 score = (start_scores[0][start_idx] * end_scores[0][end_idx]).item()
                 
-                # Check for invalid span
                 if end_idx < start_idx:
                     return {'score': score, 'answer': ''}
                     
@@ -319,12 +313,10 @@ def summarize_text(transcript):
     summarizer = get_summarizer()
     summaries = []
     for ch in chunks:
-        # Dynamic length adjustment for short text
         input_len = len(ch.split())
         curr_max = min(250, int(input_len * 0.8))
         curr_min = min(80, int(input_len * 0.2))
         
-        # Ensure min < max
         if curr_max <= curr_min:
             curr_max = input_len
             curr_min = 10 if input_len > 10 else 1
@@ -333,7 +325,6 @@ def summarize_text(transcript):
             out = summarizer(ch, max_length=curr_max, min_length=curr_min, do_sample=False)
             summaries.append(out[0]["summary_text"])
         except Exception:
-            # Fallback for extremely short text
             summaries.append(ch[:200] + "...")
             
     return "\n".join(f"- {s}" for s in summaries)

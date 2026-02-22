@@ -6,6 +6,13 @@ LecGen AI is a powerful tool designed to transform lecture recordings (YouTube l
 
 - **Transcription:** High-accuracy transcription using OpenAI's Whisper model.
 - **Summarization:** Smart summaries that capture the essence of the lecture.
+- **PYQ Analysis:** Intelligent analysis of Previous Year Question papers with:
+  - **Topic Clustering:** ML-powered grouping of related questions.
+  - **Smart Naming:** Context-aware expansion of topic names (e.g., "M" → "Memory Management").
+  - **Diagram Support:** Automatic extraction and inline rendering of diagrams and graphs.
+  - **Question Rewriting:** Transformation of vague questions into clear, context-rich queries.
+  - **Curated Resources:** Direct links to verified tutorials (GeeksforGeeks, TutorialsPoint) for every topic.
+  - **Difficulty Classification:** Categorization into Standard, Important, and Critical levels.
 - **Notes Generation:** Structured notes for easy review.
 - **Quiz Generation:** AI-generated questions and answers to test your knowledge.
 - **Flashcards:** Interactive flashcards for active recall.
@@ -38,9 +45,30 @@ LecGen AI is a powerful tool designed to transform lecture recordings (YouTube l
 
 ## Running the App
 
-### Streamlit Frontend (Recommended)
+### Recommended: React + FastAPI (Modern Stack)
 
-To run the modern Streamlit interface:
+This is the new modern interface built with React and FastAPI.
+
+1.  **Install Frontend Dependencies:**
+
+    ```bash
+    cd frontend
+    npm install
+    cd ..
+    ```
+
+2.  **Start both Backend and Frontend:**
+    Run the handy batch script:
+    ```bash
+    .\start_app.bat
+    ```
+    Or manually:
+    - Backend: `python -m uvicorn api.main:app --reload --port 8000`
+    - Frontend: `cd frontend && npm run dev`
+
+### Legacy: Streamlit Frontend
+
+To run the legacy Streamlit interface:
 
 ```bash
 streamlit run streamlit_app.py
@@ -56,7 +84,8 @@ python main.py
 
 ## Tech Stack
 
-- **Frontend:** [Streamlit](https://streamlit.io/)
+- **Frontend:** [React JS](https://react.dev/) + [Vite](https://vitejs.dev/) + [Lucide Icons](https://lucide.dev/)
+- **Backend:** [FastAPI](https://fastapi.tiangolo.com/)
 - **Transcription:** [OpenAI Whisper](https://github.com/openai/whisper)
 - **AI Models:** [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) (BART, T5, RoBERTa)
 - **Audio Processing:** [Pydub](http://pydub.com/)
