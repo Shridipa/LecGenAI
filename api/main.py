@@ -58,9 +58,15 @@ class TaskResponse(BaseModel):
 # --- Security Configuration ---
 SECRET_KEY = "lecgen_ai_secret_key_change_me"
 ALGORITHM = "HS256"
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Reduced rounds for faster performance in development/demo environments
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=10)
 
-USERS_FILE = "users.json"
+DATA_DIR = "data"
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
+USERS_FILE = os.path.join(DATA_DIR, "users.json")
+HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -150,7 +156,6 @@ app.add_middleware(
 )
 
 UPLOAD_FOLDER = "uploads"
-HISTORY_FILE = "history.json"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Task storage
