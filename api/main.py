@@ -113,12 +113,29 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 SILENT_COMPRESS_SIZE = 5 * 1024 * 1024 # 5MB
 
 def compress_file(input_path):
-    """Compress video/audio using ffmpeg"""
-    output_path = input_path.rsplit('.', 1)[0] + "_comp.mp3"
-    # Bitrate 64k is perfect for lectures
-    cmd = f'ffmpeg -y -i "{input_path}" -ab 64k "{output_path}"'
-    os.system(cmd)
-    return output_path if os.path.exists(output_path) else input_path
+    """Compress video/audio using ffmpeg efficiently"""
+    import subprocess
+    output_path = input_path.rsplit('.', 1)[0] + "_processed.mp3"
+    
+    # Check if already processed
+    if os.path.exists(output_path):
+        return output_path
+        
+    # Bitrate 64k is perfect for voice-heavy lectures, much faster than defaults
+    cmd = [
+        'ffmpeg', '-y', '-i', input_path, 
+        '-vn', # Disable video for speed
+        '-acodec', 'libmp3lame', 
+        '-ab', '64k', 
+        '-ar', '22050', # Lower sample rate for processing speed, enough for speech
+        output_path
+    ]
+    
+    try:
+        subprocess.run(cmd, check=True, capture_output=True)
+        return output_path if os.path.exists(output_path) else input_path
+    except:
+        return input_path
 
 def run_processing_task(task_id: str, source_type: str, data: str, target_lang: str = 'en'):
     # Tiered Compression Logic (Only for Media)

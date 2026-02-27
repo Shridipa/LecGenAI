@@ -13,8 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 # from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer, AutoModelForQuestionAnswering # Moved to lazy load
 
 
-# Global worker pool for speed
-_executor = ThreadPoolExecutor(max_workers=4)
+
 
 def translate_text(text, target_lang):
     if not text or target_lang == 'en': return text
@@ -411,6 +410,9 @@ def translate_result(result, target_lang):
     result['language'] = target_lang
     return result
 
+# Global worker pool for speed
+_executor = ThreadPoolExecutor(max_workers=8)
+
 def process_lecture(source_type, data, target_lang='en'):
     # data can be URL, local path, or raw text
     audio_path = None
@@ -434,9 +436,10 @@ def process_lecture(source_type, data, target_lang='en'):
         transcript = data
         
     if audio_path and not transcript:
-        model = get_whisper_model("tiny")
-        # Added VAD filter for extra speed
-        segments, info = model.transcribe(audio_path, beam_size=1, temperature=0, vad_filter=True)
+        # Upgraded to 'base' for better 'correctness' as requested, while still being very fast.
+        model = get_whisper_model("base")
+        # Added VAD filter for extra speed and better silence handling
+        segments, info = model.transcribe(audio_path, beam_size=1, temperature=0, vad_filter=True, task="transcribe")
         transcript = "".join([segment.text for segment in segments])
         
     if not transcript:

@@ -119,7 +119,7 @@ const Home = () => {
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 mb-6 font-outfit">
                   <Sparkles size={12} className="text-primary" />
                   <span className="text-[10px] uppercase tracking-widest font-semibold opacity-70">
-                    Neural Knowledge Extraction • 1 Min Rapid Gen
+                    Fast Study Extraction • 1 Min Gen
                   </span>
                 </div>
                 <h2 className="text-4xl md:text-5xl font-bold mb-4 leading-tight tracking-tight text-main">
@@ -280,10 +280,10 @@ const Home = () => {
                       
                       <div className="grid grid-cols-2 gap-4">
                         {[
-                          { label: t.fastSummaries, icon: Zap, desc: 'Condensed knowledge' },
-                          { label: t.flashcards, icon: Layers, desc: 'Active recall system' },
-                          { label: t.quizzes, icon: HelpCircle, desc: 'Adaptive testing' },
-                          { label: t.scripts, icon: FileText, desc: 'Verbatim logs' }
+                          { label: t.fastSummaries, icon: Zap, desc: 'Easy-to-read summaries' },
+                          { label: t.flashcards, icon: Layers, desc: 'Memory practice' },
+                          { label: t.quizzes, icon: HelpCircle, desc: 'Self-quizzes' },
+                          { label: t.scripts, icon: FileText, desc: 'Study scripts' }
                         ].map((feat, i) => (
                           <div key={i} className="bg-white/5 p-4 rounded-xl border border-white/5 hover:border-primary/20 transition-colors group/feat">
                             <feat.icon size={20} className="text-primary/70 group-hover/feat:text-primary mb-3 transition-colors" />
@@ -314,7 +314,7 @@ const Home = () => {
             <h2 className="text-2xl font-bold mb-2 text-main">
               {processingStatus === 'compressing' ? 'Compressing File...' : 
                processingStatus === 'optimizing' ? 'Optimizing Content...' :
-               'Synthesizing Knowledge'}
+               'Creating Study Guides'}
             </h2>
             <p className="text-muted text-xs mb-8 font-bold uppercase tracking-widest text-center max-w-sm">
                {processingStatus === 'compressing' ? 
@@ -325,9 +325,9 @@ const Home = () => {
             </p>
             <div className="flex flex-col gap-3 max-w-xs w-full">
               {[
-                { label: 'Analyzing Audio Stream', status: !['compressing', 'optimizing'].includes(processingStatus) },
-                { label: 'Neural Knowledge Synthesis', status: processingStatus === 'processing' },
-                { label: 'Building Study Path', status: false }
+                { label: 'Reading Audio Data', status: !['compressing', 'optimizing'].includes(processingStatus) },
+                { label: 'Creating Study Materials', status: processingStatus === 'processing' },
+                { label: 'Finalizing Materials', status: false }
               ].map((step, i) => (
                 <div key={i} className={`flex items-center gap-3 text-sm font-bold transition-opacity duration-500 ${step.status ? 'opacity-100' : 'opacity-30'}`}>
                   <div className={`w-2 h-2 rounded-full ${step.status ? 'bg-primary animate-pulse' : 'bg-slate-700'}`} />
