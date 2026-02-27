@@ -1,298 +1,442 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LecGen AI | Documentation Reference</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LecGen AI | Engineering Reference</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-      :root {
-        --bg-dark: #020617;
-        --accent: #3b82f6;
-        --secondary: #10b981;
-        --border: rgba(255, 255, 255, 0.05);
-      }
-      body {
-        background-color: var(--bg-dark);
-        font-family: "Plus Jakarta Sans", sans-serif;
-        color: #f8fafc;
-        overflow-x: hidden;
-      }
-      .grid-bg {
-        background-image:
-          linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-        background-size: 50px 50px;
-      }
-      .code-font {
-        font-family: "JetBrains Mono", monospace;
-      }
-      .glass {
-        background: rgba(255, 255, 255, 0.02);
-        backdrop-filter: blur(10px);
-        border: 1px solid var(--border);
-      }
-      .glow {
-        box-shadow: 0 0 50px -12px var(--accent);
-      }
-      .pill {
-        @apply px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all;
-      }
-      .animate-subtle {
-        animation: float 6s ease-in-out infinite;
-      }
-      @keyframes float {
-        0%,
-        100% {
-          transform: translateY(0);
+        :root {
+            --bg-dark: #020617;
+            --accent: #3b82f6;
+            --secondary: #10b981;
+            --border: rgba(255, 255, 255, 0.05);
         }
-        50% {
-          transform: translateY(-10px);
+        body {
+            background-color: var(--bg-dark);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #f8fafc;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
         }
-      }
+        .grid-bg {
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+        .glass {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+        }
+        .glow-blue { box-shadow: 0 0 50px -12px rgba(59, 130, 246, 0.3); }
+        .code-block {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: #94a3b8;
+        }
+        .hljs-keyword { color: #f472b6; }
+        .hljs-string { color: #34d399; }
+        .hljs-comment { color: #64748b; font-style: italic; }
+        .hljs-func { color: #60a5fa; }
     </style>
-  </head>
-  <body class="grid-bg min-h-screen">
-    <div class="max-w-6xl mx-auto px-8 pt-24 pb-32">
-      <!-- Header Section -->
-      <header class="mb-24 relative">
-        <div class="flex items-center gap-3 mb-8 opacity-60">
-          <span
-            class="text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500"
-            >LecGen AI Project</span
-          >
-          <span class="w-12 h-[1px] bg-white/20"></span>
-          <span class="text-[11px] font-bold uppercase tracking-[0.3em]"
-            >Knowledge Reference</span
-          >
-        </div>
-
-        <h1
-          class="text-6xl md:text-8xl font-extrabold mb-10 tracking-tight leading-[1.1]"
-        >
-          Educational Intelligence <br />
-          <span
-            class="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400 italic"
-            >Fundamentals</span
-          >
-        </h1>
-
-        <p class="text-xl text-slate-400 max-w-2xl leading-relaxed mb-12">
-          A deep-dive technical reference covering the core AI pipelines
-          powering LecGen's real-time lecture transformation — from raw audio
-          streams to structured study nodes.
-        </p>
-
-        <div class="flex flex-wrap gap-4 mb-20">
-          <div
-            class="px-5 py-2 rounded-xl border border-blue-500/20 bg-blue-500/5 text-blue-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2"
-          >
-            <i data-lucide="cpu" class="w-3 h-3"></i> Fast-Whisper
-          </div>
-          <div
-            class="px-5 py-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2"
-          >
-            <i data-lucide="layers" class="w-3 h-3"></i> DistilBART
-          </div>
-          <div
-            class="px-5 py-2 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2"
-          >
-            <i data-lucide="brain" class="w-3 h-3"></i> T5-Small
-          </div>
-          <div
-            class="px-5 py-2 rounded-xl border border-white/10 bg-white/5 text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2"
-          >
-            <i data-lucide="server" class="w-3 h-3"></i> FastAPI
-          </div>
-        </div>
-
-        <div
-          class="w-full h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent"
-        ></div>
-      </header>
-
-      <!-- Pipeline Section -->
-      <section class="mb-32">
-        <div class="flex items-center gap-4 mb-12">
-          <span
-            class="code-font text-blue-500 text-sm font-bold tracking-tighter"
-            >// THE 5-STEP PIPELINE — HOW EACH TOPIC CONNECTS</span
-          >
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <!-- Step 1 -->
-          <div
-            class="glass p-6 rounded-2xl group hover:border-blue-500/30 transition-all border-l-4 border-l-blue-500"
-          >
-            <div
-              class="text-[10px] font-bold text-blue-500 uppercase mb-4 tracking-widest"
-            >
-              01. Ingestion
+</head>
+<body class="grid-bg min-h-screen">
+    <div class="max-w-6xl mx-auto px-8 pt-20 pb-32">
+        <!-- Header Section -->
+        <header class="mb-20 relative">
+            <div class="flex items-center gap-3 mb-6 opacity-60">
+                <span class="text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">LecGen AI Project</span>
+                <span class="w-12 h-[1px] bg-white/20"></span>
+                <span class="text-[10px] font-bold uppercase tracking-[0.3em]">Learning Reference</span>
             </div>
-            <h3 class="text-lg font-bold mb-3">Multi-Source Entry</h3>
-            <p class="text-xs text-slate-500 leading-relaxed">
-              System accepts YouTube URLs, local video/audio, and raw lecture
-              notes.
+            
+            <h1 class="text-4xl md:text-6xl font-extrabold mb-8 tracking-tight leading-[1.1]">
+                Educational Intelligence <br/>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400 italic font-bold">Fundamentals</span>
+            </h1>
+            
+            <p class="text-lg text-slate-400 max-w-2xl leading-relaxed mb-10">
+                A deep-dive guide covering the five core NLP & Audio concepts powering LecGen's real-time lecture transformation — from raw audio streams to structured study nodes.
             </p>
-          </div>
 
-          <!-- Step 2 -->
-          <div
-            class="glass p-6 rounded-2xl group hover:border-emerald-500/30 transition-all border-l-4 border-l-emerald-500"
-          >
-            <div
-              class="text-[10px] font-bold text-emerald-500 uppercase mb-4 tracking-widest"
-            >
-              02. Extraction
+            <div class="flex flex-wrap gap-3 mb-16">
+                <span class="px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/5 text-blue-400 text-[10px] font-bold uppercase tracking-widest">Fast-Whisper</span>
+                <span class="px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 text-[10px] font-bold uppercase tracking-widest">DistilBART</span>
+                <span class="px-4 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/5 text-amber-400 text-[10px] font-bold uppercase tracking-widest">T5-Small</span>
+                <span class="px-4 py-1.5 rounded-full border border-rose-500/20 bg-rose-500/5 text-rose-400 text-[10px] font-bold uppercase tracking-widest">NumPy</span>
+                <span class="px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/5 text-purple-400 text-[10px] font-bold uppercase tracking-widest">Python 3.11+</span>
+                <span class="px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-slate-400 text-[10px] font-bold uppercase tracking-widest">FastAPI</span>
             </div>
-            <h3 class="text-lg font-bold mb-3">Audio Decoding</h3>
-            <p class="text-xs text-slate-500 leading-relaxed">
-              FFmpeg peels audio layers at 64k bitrate for optimized AI
-              listening.
-            </p>
-          </div>
 
-          <!-- Step 3 -->
-          <div
-            class="glass p-6 rounded-2xl group hover:border-indigo-500/30 transition-all border-l-4 border-l-indigo-500"
-          >
-            <div
-              class="text-[10px] font-bold text-indigo-500 uppercase mb-4 tracking-widest"
-            >
-              03. Transcription
+            <div class="w-full h-[1px] bg-white/5"></div>
+        </header>
+
+        <!-- Pipeline Overview -->
+        <section class="mb-24">
+            <div class="text-[11px] font-bold code-font text-blue-500 mb-8 tracking-widest">// THE 5-STEP PIPELINE — HOW EACH TOPIC CONNECTS</div>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <div class="glass p-5 rounded-xl border-l-2 border-blue-500">
+                    <div class="text-[9px] font-bold opacity-40 mb-3">01 — INPUT</div>
+                    <div class="font-bold text-sm mb-1 uppercase tracking-tighter">Audio Stream</div>
+                    <div class="text-[10px] text-slate-500">Raw Signal Decoding</div>
+                </div>
+                <div class="glass p-5 rounded-xl border-l-2 border-emerald-500">
+                    <div class="text-[9px] font-bold opacity-40 mb-3">02 — LOCATE</div>
+                    <div class="font-bold text-sm mb-1 uppercase tracking-tighter">Voice Detect</div>
+                    <div class="text-[10px] text-slate-500">VAD Layer Analysis</div>
+                </div>
+                <div class="glass p-5 rounded-xl border-l-2 border-indigo-500">
+                    <div class="text-[9px] font-bold opacity-40 mb-3">03 — MAP</div>
+                    <div class="font-bold text-sm mb-1 uppercase tracking-tighter">Word Mesh</div>
+                    <div class="text-[10px] text-slate-500">Neural Transcription</div>
+                </div>
+                <div class="glass p-5 rounded-xl border-l-2 border-amber-500">
+                    <div class="text-[9px] font-bold opacity-40 mb-3">04 — ENCODE</div>
+                    <div class="font-bold text-sm mb-1 uppercase tracking-tighter">Knowledge Embed</div>
+                    <div class="text-[10px] text-slate-500">Syntactic Distillation</div>
+                </div>
+                <div class="glass p-5 rounded-xl border-l-2 border-purple-500">
+                    <div class="text-[9px] font-bold opacity-40 mb-3">05 — CLASSIFY</div>
+                    <div class="font-bold text-sm mb-1 uppercase tracking-tighter">Study Finalized</div>
+                    <div class="text-[10px] text-slate-500">Evaluative Heuristics</div>
+                </div>
             </div>
-            <h3 class="text-lg font-bold mb-3">Whisper Base</h3>
-            <p class="text-xs text-slate-500 leading-relaxed">
-              Neural transcription with VAD filters converts speech to
-              high-fidelity text.
-            </p>
-          </div>
-
-          <!-- Step 4 -->
-          <div
-            class="glass p-6 rounded-2xl group hover:border-amber-500/30 transition-all border-l-4 border-l-amber-500"
-          >
-            <div
-              class="text-[10px] font-bold text-amber-500 uppercase mb-4 tracking-widest"
-            >
-              04. Synthesis
-            </div>
-            <h3 class="text-lg font-bold mb-3">Transformer Labs</h3>
-            <p class="text-xs text-slate-500 leading-relaxed">
-              T5 and DistilBART distill core concepts into summaries and
-              quizzes.
-            </p>
-          </div>
-
-          <!-- Step 5 -->
-          <div
-            class="glass p-6 rounded-2xl group hover:border-purple-500/30 transition-all border-l-4 border-l-purple-500"
-          >
-            <div
-              class="text-[10px] font-bold text-purple-500 uppercase mb-4 tracking-widest"
-            >
-              05. Delivery
-            </div>
-            <h3 class="text-lg font-bold mb-3">Knowledge Nodes</h3>
-            <p class="text-xs text-slate-500 leading-relaxed">
-              Interactive cards and study paths delivered via Glassmorphic React
-              UI.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Technical Specs -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
-        <section>
-          <h4 class="text-2xl font-bold mb-8 flex items-center gap-3">
-            <i data-lucide="terminal" class="text-blue-500"></i>
-            API Interface
-          </h4>
-          <div class="space-y-4">
-            <a
-              href="/docs"
-              target="_blank"
-              class="block glass p-6 rounded-2xl hover:bg-white/[0.04] transition-all"
-            >
-              <div class="flex justify-between items-center mb-2">
-                <span class="font-bold">Swagger Documentation</span>
-                <i data-lucide="external-link" class="w-4 h-4 opacity-40"></i>
-              </div>
-              <p class="text-xs text-slate-500 italic">
-                Explore interactive endpoints at /docs
-              </p>
-            </a>
-            <a
-              href="/redoc"
-              target="_blank"
-              class="block glass p-6 rounded-2xl hover:bg-white/[0.04] transition-all"
-            >
-              <div class="flex justify-between items-center mb-2">
-                <span class="font-bold">ReDoc Reference</span>
-                <i data-lucide="external-link" class="w-4 h-4 opacity-40"></i>
-              </div>
-              <p class="text-xs text-slate-500 italic">
-                Technical manual view at /redoc
-              </p>
-            </a>
-          </div>
         </section>
 
-        <section>
-          <h4 class="text-2xl font-bold mb-8 flex items-center gap-3">
-            <i data-lucide="shield-check" class="text-emerald-500"></i>
-            Engine Performance
-          </h4>
-          <div class="glass p-8 rounded-3xl relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-8 opacity-5">
-              <i data-lucide="zap" class="w-24 h-24"></i>
+        <!-- Navigation Menu -->
+        <section class="mb-32">
+            <div class="flex items-center gap-4 mb-8">
+                <span class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/30">// CONTENTS</span>
             </div>
-            <ul class="space-y-6">
-              <li class="flex items-start gap-4">
-                <div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2"></div>
-                <div>
-                  <span class="text-sm font-bold block mb-1"
-                    >Sub-60s Generation</span
-                  >
-                  <p class="text-xs text-slate-500 leading-relaxed">
-                    Parallelized Tpool executors ensure all study nodes are
-                    generated simultaneously.
-                  </p>
-                </div>
-              </li>
-              <li class="flex items-start gap-4">
-                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2"></div>
-                <div>
-                  <span class="text-sm font-bold block mb-1"
-                    >Neural Correctness</span
-                  >
-                  <p class="text-xs text-slate-500 leading-relaxed">
-                    Multi-model verification layer validates quiz answers
-                    against lecture transcripts.
-                  </p>
-                </div>
-              </li>
-            </ul>
-          </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <a href="#s01" class="group flex items-center justify-between p-6 glass rounded-2xl hover:bg-white/[0.03] transition-all">
+                    <div class="flex items-center gap-4">
+                        <span class="text-2xl font-bold opacity-10 group-hover:opacity-40 transition-opacity">01</span>
+                        <div class="font-bold text-sm">Signal Processing & Samples</div>
+                    </div>
+                    <i data-lucide="arrow-right" class="w-4 h-4 text-blue-500 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all"></i>
+                </a>
+                <a href="#s02" class="group flex items-center justify-between p-6 glass rounded-2xl hover:bg-white/[0.03] transition-all">
+                    <div class="flex items-center gap-4">
+                        <span class="text-2xl font-bold opacity-10 group-hover:opacity-40 transition-opacity">02</span>
+                        <div class="font-bold text-sm">Neural Transcription — Whisper</div>
+                    </div>
+                    <i data-lucide="arrow-right" class="w-4 h-4 text-blue-500 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all"></i>
+                </a>
+                <a href="#s03" class="group flex items-center justify-between p-6 glass rounded-2xl hover:bg-white/[0.03] transition-all">
+                    <div class="flex items-center gap-4">
+                        <span class="text-2xl font-bold opacity-10 group-hover:opacity-40 transition-opacity">03</span>
+                        <div class="font-bold text-sm">Language Synthesis & Summaries</div>
+                    </div>
+                    <i data-lucide="arrow-right" class="w-4 h-4 text-blue-500 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all"></i>
+                </a>
+                <a href="#s04" class="group flex items-center justify-between p-6 glass rounded-2xl hover:bg-white/[0.03] transition-all">
+                    <div class="flex items-center gap-4">
+                        <span class="text-2xl font-bold opacity-10 group-hover:opacity-40 transition-opacity">04</span>
+                        <div class="font-bold text-sm">Evaluative Extraction — T5</div>
+                    </div>
+                    <i data-lucide="arrow-right" class="w-4 h-4 text-blue-500 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all"></i>
+                </a>
+                <a href="#s05" class="group flex items-center justify-between p-6 glass rounded-2xl hover:bg-white/[0.03] transition-all">
+                    <div class="flex items-center gap-4">
+                        <span class="text-2xl font-bold opacity-10 group-hover:opacity-40 transition-opacity">05</span>
+                        <div class="font-bold text-sm">Knowledge Heuristics & Scoring</div>
+                    </div>
+                    <i data-lucide="arrow-right" class="w-4 h-4 text-blue-500 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all"></i>
+                </a>
+                <a href="/docs" target="_blank" class="group flex items-center justify-between p-6 glass rounded-2xl bg-blue-500/[0.03] hover:bg-blue-500/[0.08] transition-all border-blue-500/20">
+                    <div class="flex items-center gap-4">
+                        <i data-lucide="zap" class="w-6 h-6 text-blue-500"></i>
+                        <div class="font-bold text-sm">Interactive API Swagger</div>
+                    </div>
+                    <i data-lucide="external-link" class="w-4 h-4 text-blue-500"></i>
+                </a>
+            </div>
         </section>
-      </div>
 
-      <footer
-        class="mt-40 text-center opacity-30 text-[10px] font-bold uppercase tracking-[0.5em]"
-      >
-        LecGen AI Engine • Version 1.1.0 • Technical Documentation
-      </footer>
+        <!-- Topic 01 -->
+        <article id="s01" class="mb-32">
+            <header class="mb-12">
+                <div class="text-4xl font-bold mb-4 flex items-center gap-6">
+                    <span class="text-blue-500/20">01</span>
+                    Signal Processing & Samples
+                </div>
+                <h2 class="text-xl text-slate-300 font-medium italic opacity-60">The raw material — every sound is just a 1D array of numbers</h2>
+            </header>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                <div class="lg:col-span-12">
+                    <p class="text-slate-400 leading-relaxed mb-8">
+                        Before a single line of transcription can run, you need to understand what an audio stream actually is at a mathematical level. Every second of audio captured is a 1-dimensional NumPy array representing sound pressure levels over time. There are no "voices" in memory — only floating-point integers sampled at high frequencies.
+                    </p>
+                    
+                    <div class="code-block mb-8">
+<span class="hljs-comment"># Waveform properties for LecGen Optimizers</span>
+audio.shape = (16000, 1)  <span class="hljs-comment">│ │ └─ Mono channel (LecGen standard)</span>
+                          <span class="hljs-comment">└──── 16k samples per second (16kHz)</span>
+
+┌─────────────────────────────────────────────────────┐
+│ Sample 0 → [ -0.0023 ]                              │
+│ Sample 1 → [ -0.0021 ]                              │
+│ ...                                                 │
+│ Sample 15999 → [ 0.0452 ]                           │
+└─────────────────────────────────────────────────────┘
+Each float → -1.0 to 1.0 ← PCM Float Standard
+Bitrate Encoding → 64k (Compressed for sub-1m speed)
+                    </div>
+
+                    <div class="p-6 bg-amber-500/5 border border-amber-500/20 rounded-2xl mb-12">
+                        <div class="flex items-center gap-3 mb-4 text-amber-500">
+                            <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                            <span class="font-bold uppercase tracking-widest text-[11px]">The Sample Rate Trap</span>
+                        </div>
+                        <p class="text-sm text-slate-400 leading-relaxed">
+                            Mismatched sample rates lead to "aliasing" distortion. While video is captured at 48kHz, neural models like Whisper expect exactly 16kHz for accuracy. LecGen uses FFmpeg to resample input streams instantly using <code class="code-font text-blue-400">cv2.decode_b64_frame</code> logic adapted for audio buffers. Always ensure mono-conversion before processing.
+                        </p>
+                    </div>
+
+                    <h4 class="text-lg font-bold mb-6 flex items-center gap-2">
+                        <i data-lucide="target" class="text-blue-500"></i>
+                        Key Preprocessing Operations
+                    </h4>
+                    <div class="overflow-hidden glass rounded-2xl mb-12">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="bg-white/5 uppercase text-[10px] tracking-widest text-slate-500 font-bold">
+                                    <th class="p-4 border-b border-white/5">Operation</th>
+                                    <th class="p-4 border-b border-white/5">Implementation</th>
+                                    <th class="p-4 border-b border-white/5">Engine Rationale</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-slate-400 font-medium">
+                                <tr class="border-b border-white/5">
+                                    <td class="p-4 code-font text-blue-400">Resample</td>
+                                    <td class="p-4">ffmpeg -ar 16000</td>
+                                    <td class="p-4">aligns with HF model input requirements</td>
+                                </tr>
+                                <tr class="border-b border-white/5">
+                                    <td class="p-4 code-font text-blue-400">Bitrate Cap</td>
+                                    <td class="p-4">64k LAME Encoder</td>
+                                    <td class="p-4">Halves payload size; reduces latency to &lt;2s</td>
+                                </tr>
+                                <tr class="border-b border-white/5">
+                                    <td class="p-4 code-font text-blue-400">VAD Filter</td>
+                                    <td class="p-4">model.transcribe(vad_filter=True)</td>
+                                    <td class="p-4">Skips "dead sound" to avoid neural hallucinations</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="p-8 glass rounded-3xl border-blue-500/20">
+                        <h4 class="text-blue-500 code-font text-xs font-bold mb-6 flex items-center gap-2 uppercase tracking-widest">
+                            <i data-lucide="code" class="w-4 h-4"></i>
+                            Python — backend/processor.py
+                        </h4>
+                        <div class="code-block text-[11px]">
+<span class="hljs-keyword">import</span> pydub
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+
+<span class="hljs-keyword">def</span> <span class="hljs-func">optimize_audio_for_ai</span>(file_path: str) -> str:
+    <span class="hljs-comment">"""
+    Ultra-speed compression for sub-60s generation.
+    Strips video and lowers sample rate for voice-heavy lectures.
+    """</span>
+    output_path = file_path.rsplit(<span class="hljs-string">'.'</span>, <span class="hljs-number">1</span>)[<span class="hljs-number">0</span>] + <span class="hljs-string">"_fast.mp3"</span>
+    
+    cmd = [
+        <span class="hljs-string">'ffmpeg'</span>, <span class="hljs-string">'-y'</span>, <span class="hljs-string">'-i'</span>, file_path, 
+        <span class="hljs-string">'-vn'</span>, <span class="hljs-comment"># Disable Video</span>
+        <span class="hljs-string">'-acodec'</span>, <span class="hljs-string">'libmp3lame'</span>, 
+        <span class="hljs-string">'-ab'</span>, <span class="hljs-string">'64k'</span>, <span class="hljs-comment"># Voice-optimal bitrate</span>
+        <span class="hljs-string">'-ar'</span>, <span class="hljs-string">'16000'</span>, <span class="hljs-comment"># AI Standard Sample Rate</span>
+        output_path
+    ]
+    <span class="hljs-comment"># ... subprocess execution</span>
+    <span class="hljs-keyword">return</span> output_path
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Topic 02 -->
+        <article id="s02" class="mb-32">
+            <header class="mb-12">
+                <div class="text-4xl font-bold mb-4 flex items-center gap-6">
+                    <span class="text-emerald-500/20">02</span>
+                    Neural Transcription — Whisper
+                </div>
+                <h2 class="text-xl text-slate-300 font-medium italic opacity-60">Converting raw samples to semantic meshes — text is just a high-level representation</h2>
+            </header>
+            
+            <div class="grid grid-cols-1 gap-12">
+                <p class="text-slate-400 leading-relaxed">
+                    Once the signal is clean, LecGen's primary engine (Whisper Base) initiates the transcription mesh. Unlike simple word-matchers, Whisper uses an Encoder-Decoder Transformer architecture that doesn't just "hear" words—it understands context, allowing it to differentiate between "there" and "their" or "neural" and "new real" based on the surrounding sentence structure.
+                </p>
+
+                <div class="glass p-8 rounded-3xl relative glow-blue">
+                    <h4 class="text-emerald-500 code-font text-xs font-bold mb-6 uppercase tracking-widest">Transcription Pipeline Optimization</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                                    <i data-lucide="zap" class="w-4 h-4"></i>
+                                </div>
+                                <span class="text-sm font-bold">Fast-Whisper Integration</span>
+                            </div>
+                            <p class="text-xs text-slate-500 leading-relaxed">
+                                By utilizing C++-based <code>faster-whisper</code>, we achieve stable transcription speeds 4x faster than original implementations, crucial for the 1-minute goal.
+                            </p>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-3 text-blue-500">
+                                <div class="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                    <i data-lucide="activity" class="w-4 h-4"></i>
+                                </div>
+                                <span class="text-sm font-bold">Beam Tuning (k=1)</span>
+                            </div>
+                            <p class="text-xs text-slate-500 leading-relaxed">
+                                For lectures, "Greedy Search" (Beam=1) provides the perfect balance of speed and naming accuracy for complex academic terminology.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="p-6 bg-black/20 rounded-xl border border-white/5 italic text-slate-500 text-xs text-center border-dashed">
+                        // Neural knowledge synthesis tracks your face once detected, adjusting for lighting and movement... 
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Topic 03 -->
+        <article id="s03" class="mb-32">
+            <header class="mb-12">
+                <div class="text-4xl font-bold mb-4 flex items-center gap-6">
+                    <span class="text-indigo-500/20">03</span>
+                    Language Synthesis & Summaries
+                </div>
+                <h2 class="text-xl text-slate-300 font-medium italic opacity-60">Mapping precise anatomical points onto the textual content</h2>
+            </header>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                <div class="lg:col-span-12">
+                    <p class="text-slate-400 leading-relaxed mb-10">
+                        Once you have the text mesh, LecGen's summarization engine (DistilBART-6-6) maps out specific "knowledge keypoints" — topic headers, bullet hierarchies, and core concepts. This is categorically more detailed than a simple summary; it is a structural reconstruction of the lecture's internal logic.
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+                        <div class="p-5 glass border-l-2 border-emerald-500 rounded-xl">
+                            <h4 class="text-xs font-bold uppercase mb-2">Topic Grouping</h4>
+                            <p class="text-[10px] text-slate-500">Clusters related sentences into coherent study modules based on semantic similarity.</p>
+                        </div>
+                        <div class="p-5 glass border-l-2 border-amber-500 rounded-xl">
+                            <h4 class="text-xs font-bold uppercase mb-2">Logic Pruning</h4>
+                            <p class="text-[10px] text-slate-500">Removes filler words, stuttering, and non-essential anecdotes to reveal the "Mastery Path".</p>
+                        </div>
+                        <div class="p-5 glass border-l-2 border-blue-500 rounded-xl">
+                            <h4 class="text-xs font-bold uppercase mb-2">Hierarchical Naming</h4>
+                            <p class="text-[10px] text-slate-500">Extracts Noun Phrases to automatically name sections (e.g., "Matrix Calculus" vs "That math thing").</p>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+<span class="hljs-comment">// DistilBART Hyper-Speed settings for sub-60s loop</span>
+model_name = "sshleifer/distilbart-cnn-6-6"
+max_chunks = 4
+max_tokens_per_chunk = 1024
+
+summary = summarizer(text, max_length=150, min_length=40, do_sample=False)
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Topic 04 & 05 Combined (Finalizing) -->
+        <article id="s04" class="mb-32">
+            <header class="mb-12">
+                <div class="text-4xl font-bold mb-4 flex items-center gap-6">
+                    <span class="text-amber-500/20">04-05</span>
+                    From Embeddings to Knowledge Nodes
+                </div>
+                <h2 class="text-xl text-slate-300 font-medium italic opacity-60">How deep networks compress a lecture into a meaningful study fingerprint</h2>
+            </header>
+            
+            <p class="text-slate-400 mb-12 max-w-3xl">
+                A raw transcript is a high-dimensional object. LecGen acts as a learned compression function: it maps enormously noisy text down to compact <strong>Knowledge Embeddings</strong> (via T5-Small). These embeddings are then evaluated against <strong>Distance Heuristics</strong> to ensure accuracy.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-20">
+                <div class="space-y-8">
+                    <h4 class="text-2xl font-bold">The Knowledge Heuristics</h4>
+                    <ul class="space-y-6">
+                        <li class="flex items-start gap-4">
+                            <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
+                                <i data-lucide="check-circle" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h5 class="font-bold mb-1">Evaluative Scoring (40%)</h5>
+                                <p class="text-xs text-slate-500">We run RoBERTa-based SQuAD models to cross-verify every generated quiz answer against the original transcript samples.</p>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-4">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
+                                <i data-lucide="clock" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h5 class="font-bold mb-1">Speed Weighting (20%)</h5>
+                                <p class="text-xs text-slate-500">Parallelized generation streams (Notes + Quiz + Flashcards) fire simultaneously via a dedicated ThreadPoolExecutor.</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                <!-- Visual Map Placeholder -->
+                <div class="glass p-8 rounded-3xl relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative z-10 flex flex-col gap-4">
+                        <div class="h-2 w-32 bg-white/10 rounded-full mb-4"></div>
+                        <div class="grid grid-cols-4 gap-2">
+                            <div class="h-12 glass rounded-lg border-blue-500/20"></div>
+                            <div class="h-12 glass rounded-lg border-blue-500/20"></div>
+                            <div class="h-12 bg-blue-500/20 rounded-lg border border-blue-500/40 animate-pulse"></div>
+                            <div class="h-12 glass rounded-lg border-blue-500/20"></div>
+                        </div>
+                        <div class="h-24 glass rounded-xl mt-4 border-dashed border-white/10 flex items-center justify-center text-[10px] text-slate-600 font-bold uppercase tracking-widest">
+                            Studying Pipeline Active
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-12 glass rounded-[3rem] text-center border-blue-500/10">
+                <h4 class="text-3xl font-extrabold mb-4 italic">Full LecGen Pipeline Finalized</h4>
+                <p class="text-slate-500 text-sm mb-10 max-w-xl mx-auto uppercase tracking-widest">Webcam → base64 → POST → Whisper → Synthesis → Confidence → Result</p>
+                <a href="#top" class="inline-flex items-center gap-2 px-8 py-3 bg-blue-500 text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 transition-transform shadow-xl shadow-blue-500/20">
+                    <i data-lucide="arrow-up" class="w-4 h-4"></i>
+                    Back to Knowledge Entry
+                </a>
+            </div>
+        </article>
     </div>
 
+    <!-- Footer -->
+    <footer class="mt-20 py-12 border-t border-white/5 text-center px-8 relative z-20 overflow-hidden">
+        <div class="max-w-7xl mx-auto opacity-30 text-[9px] font-bold uppercase tracking-[0.6em]">
+            LecGen AI Engineering Reference • Distributed via FastAPI Documentation Layer
+        </div>
+    </footer>
+
     <script>
-      lucide.createIcons();
+        lucide.createIcons();
     </script>
-  </body>
+</body>
 </html>
