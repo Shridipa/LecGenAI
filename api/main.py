@@ -13,6 +13,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 from pyq_analyzer import PYQAnalyzer
 
 from fastapi.staticfiles import StaticFiles
+from fastapi import Header, HTTPException, Depends
+from passlib.context import CryptContext
+from jose import JWTError, jwt
+from pydantic import BaseModel, EmailStr
 
 from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
@@ -50,6 +54,64 @@ class TaskResponse(BaseModel):
     result: Optional[LectureResult] = None
     error: Optional[str] = None
     wordCount: Optional[int] = None
+
+# --- Security Configuration ---
+SECRET_KEY = "lecgen_ai_secret_key_change_me"
+ALGORITHM = "HS256"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+USERS_FILE = "users.json"
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class User(BaseModel):
+    email: str
+    name: str
+
+def load_users():
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_users(users_data):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users_data, f, indent=4)
+
+users = load_users()
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+async def get_current_user(authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+        return email
+    except JWTError:
+        return None
 
 # --- App Initialization ---
 app = FastAPI(
@@ -146,6 +208,58 @@ async def root():
 @app.get("/ping")
 async def ping():
     return {"status": "ok"}
+
+# --- Auth Endpoints ---
+@app.post("/auth/signup", tags=["Authentication"])
+async def signup(user_data: UserCreate):
+    if user_data.email in users:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    users[user_data.email] = {
+        "password": get_password_hash(user_data.password),
+        "name": user_data.name
+    }
+    save_users(users)
+    
+    access_token = create_access_token(data={"sub": user_data.email})
+    return {"access_token": access_token, "token_type": "bearer", "user": {"email": user_data.email, "name": user_data.name}}
+
+@app.post("/auth/login", tags=["Authentication"])
+async def login(user_data: UserLogin):
+    user = users.get(user_data.email)
+    if not user or not verify_password(user_data.password, user["password"]):
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    
+    access_token = create_access_token(data={"sub": user_data.email})
+    return {"access_token": access_token, "token_type": "bearer", "user": {"email": user_data.email, "name": user["name"]}}
+
+@app.get("/auth/me", tags=["Authentication"])
+async def get_me(current_user: str = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    user = users.get(current_user)
+    return {"email": current_user, "name": user.get("name", "User")}
+
+# --- Modified History Endpoint ---
+@app.get("/history", tags=["Task Management"])
+async def get_history(current_user: str = Depends(get_current_user)):
+    """Retrieve history for the logged-in user."""
+    user_history = []
+    for task_id, task in tasks.items():
+        # Backward compatibility: show all if no user_email, or only user's
+        if task.get("user_email") == current_user or (not current_user and not task.get("user_email")):
+            user_history.append({
+                "id": task_id,
+                "title": task.get("title", "Lecture"),
+                "date": task.get("timestamp", ""),
+                "type": task.get("type", "unknown"),
+                "wordCount": task.get("wordCount", 0),
+                "result": task.get("result")
+            })
+    
+    # Sort by recent first
+    user_history.sort(key=lambda x: x["date"], reverse=True)
+    return user_history
 
 @app.get("/tasks/{task_id}", tags=["Task Management"], response_model=TaskResponse)
 async def get_task_status(task_id: str):
@@ -272,71 +386,66 @@ def run_processing_task(task_id: str, source_type: str, data: str, target_lang: 
     
     save_history()
 
-@app.post("/process/youtube", tags=["Lecture Processing"])
-async def process_youtube(background_tasks: BackgroundTasks, url: str = Form(...)):
+@app.post("/process/youtube", tags=["Processing"])
+async def process_youtube(
+    background_tasks: BackgroundTasks, 
+    url: str = Form(...),
+    current_user: Optional[str] = Depends(get_current_user)
+):
     """
-    Submit a YouTube URL for AI analysis.
-    Downloads audio, transcribes, and generates study materials asynchronously.
+    Process a YouTube video into study materials.
     """
     task_id = str(uuid.uuid4())
     tasks[task_id] = {
-        "status": "pending", 
-        "type": "youtube", 
-        "title": f"YouTube: {url[:30]}...",
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "language": "en"
+        "status": "processing",
+        "timestamp": datetime.now().isoformat(),
+        "type": "youtube",
+        "title": url.split('=')[-1] if '=' in url else "YouTube Lecture",
+        "user_email": current_user
     }
     background_tasks.add_task(run_processing_task, task_id, "youtube", url)
     return {"task_id": task_id}
 
-@app.post("/process/file", tags=["Lecture Processing"])
-async def process_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+@app.post("/process/file", tags=["Processing"])
+async def process_file(
+    background_tasks: BackgroundTasks, 
+    file: UploadFile = File(...),
+    current_user: Optional[str] = Depends(get_current_user)
+):
     """
-    Upload a video or audio file for analysis.
-    Supports MP4, MKV, AVI, MOV for video and MP3/WAV for audio.
+    Upload and process an audio or video file.
     """
-    try:
-        file_ext = file.filename.split(".")[-1].lower()
-        temp_path = os.path.join(UPLOAD_FOLDER, f"upload_{uuid.uuid4().hex}.{file_ext}")
-        
-        with open(temp_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-            
-        task_id = str(uuid.uuid4())
-        tasks[task_id] = {
-            "status": "pending", 
-            "type": "file", 
-            "title": file.filename,
-            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "language": "en"
-        }
-        
-        if file_ext in ["mp4", "mkv", "avi", "mov"]:
-            source_type = "video"
-        elif file_ext in ["txt", "md", "pdf"]: # Handle text files directly
-            source_type = "text_file"
-        else:
-            source_type = "audio"
-            
-        background_tasks.add_task(run_processing_task, task_id, source_type, temp_path)
-        
-        return {"task_id": task_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    task_id = str(uuid.uuid4())
+    file_path = os.path.join(UPLOAD_DIR, f"{task_id}_{file.filename}")
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    tasks[task_id] = {
+        "status": "processing",
+        "timestamp": datetime.now().isoformat(),
+        "type": "file",
+        "title": file.filename,
+        "user_email": current_user
+    }
+    background_tasks.add_task(run_processing_task, task_id, "file", file_path)
+    return {"task_id": task_id}
 
-@app.post("/process/text", tags=["Lecture Processing"])
-async def process_text(background_tasks: BackgroundTasks, text: str = Form(...)):
+@app.post("/process/text", tags=["Processing"])
+async def process_text(
+    background_tasks: BackgroundTasks, 
+    text: str = Form(...),
+    current_user: Optional[str] = Depends(get_current_user)
+):
     """
-    Process raw text/notes directly to generate study guides.
-    Useful for existing transcripts or lecture notes.
+    Transform raw text into structured study materials.
     """
     task_id = str(uuid.uuid4())
     tasks[task_id] = {
-        "status": "pending", 
-        "type": "text", 
-        "title": f"Notes: {text[:30]}...",
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "language": "en"
+        "status": "processing",
+        "timestamp": datetime.now().isoformat(),
+        "type": "text",
+        "title": f"Text: {text[:20]}...",
+        "user_email": current_user
     }
     background_tasks.add_task(run_processing_task, task_id, "text", text)
     return {"task_id": task_id}

@@ -4,10 +4,13 @@ import { Brain } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { translations } from '../translations';
+import { useAuth } from '../context/AuthContext';
+import { LogOut, User as UserIcon } from 'lucide-react';
 
 const Navbar = () => {
   const location = useLocation();
   const { language } = useSettings();
+  const { user, logout } = useAuth();
   const t = translations[language];
   
   const navLinks = [
@@ -52,7 +55,37 @@ const Navbar = () => {
         </div>
 
         {/* Action Gap Container - Keeps layout balanced */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          {user ? (
+            <div className="flex items-center gap-4">
+              <div className="hidden lg:flex flex-col items-end">
+                <span className="text-[10px] font-bold text-main">{user.name}</span>
+                <span className="text-[8px] opacity-40 uppercase tracking-widest">{user.email}</span>
+              </div>
+              <button 
+                onClick={logout}
+                className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-muted hover:text-error hover:bg-error/10 transition-all border border-white/5"
+                title="Logout"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link 
+                to="/login"
+                className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-primary transition-all px-3 py-2"
+              >
+                Login
+              </Link>
+              <Link 
+                to="/signup"
+                className="btn-gradient px-5 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest"
+              >
+                Sign Up
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </nav>

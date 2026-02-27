@@ -268,9 +268,7 @@ const Home = () => {
                     animate={{ opacity: 1, x: 0 }}
                     className="glass p-8 rounded-3xl border-white/5 relative overflow-hidden h-full flex flex-col justify-center"
                   >
-                    <div className="absolute top-0 right-0 p-12 opacity-[0.02] pointer-events-none transform translate-x-10 -translate-y-10">
-                      <Layout size={300} />
-                    </div>
+
                     
                     <div className="relative">
                       <h3 className="text-2xl font-bold mb-2 text-main">{t.workspaceTitle}</h3>
