@@ -14,33 +14,63 @@ from pyq_analyzer import PYQAnalyzer
 
 from fastapi.staticfiles import StaticFiles
 
-from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from pydantic import BaseModel, Field, HttpUrl
+from typing import List, Optional, Dict, Any
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 
+# --- API Models for Documentation ---
+class ProcessingTaskStatus(BaseModel):
+    task_id: str = Field(..., example="550e8400-e29b-41d4-a716-446655440000")
+    status: str = Field(..., example="processing")
+    type: str = Field(..., example="youtube")
+    title: str = Field(..., example="Introduction to AI")
+
+class Flashcard(BaseModel):
+    front: str = Field(..., example="What is a Neural Network?")
+    back: str = Field(..., example="A computational model inspired by the human brain.")
+
+class QuizItem(BaseModel):
+    id: int = Field(..., example=1)
+    type: str = Field(..., example="mcq")
+    question: str = Field(..., example="Capital of France?")
+    options: Optional[List[str]] = Field(None, example=["Paris", "London", "Berlin"])
+    correct: str = Field(..., example="Paris")
+
+class LectureResult(BaseModel):
+    transcript: str = Field(..., example="Full text of the lecture...")
+    notes: str = Field(..., example="- Point A\n- Point B")
+    quiz: List[QuizItem]
+    flashcards: List[Flashcard]
+    language: str = Field(..., example="en")
+
+class TaskResponse(BaseModel):
+    status: str = Field(..., example="completed")
+    result: Optional[LectureResult] = None
+    error: Optional[str] = None
+    wordCount: Optional[int] = None
+
+# --- App Initialization ---
 app = FastAPI(
     title="LecGen AI - Educational Intelligence API",
     description="""
-    ## 🚀 Project Overview
-    LecGen AI is an advanced educational intelligence platform designed to transform lectures into mastery. 
-    It processes video, audio, and text sources to generate:
-    *   **High-Accuracy Transcripts** using Whisper (base model)
-    *   **Concise Study Summaries** using DistilBART
-    *   **Practice Quizzes & Memory Cards** using T5 and RoBERTa
-    *   **PYQ Analysis** for exam preparation
+    ## 🚀 Premium Educational Intelligence
+    Transform complex lectures into structured knowledge nodes instantly.
     
-    ### 🛠️ Key Support
-    *   **YouTube Integration** via yt-dlp
-    *   **Multi-format Uploads** (MP4, MP3, PDF, TXT)
-    *   **Multilingual Support** (English, Spanish, French)
+    ### 🛡️ Features
+    - **Fast Transcription:** Powered by Whisper (base)
+    - **Smart Synthesis:** DistilBART & T5 Small
+    - **Knowledge Extraction:** Interactive Flashcards & Quizzes
+    - **Academic Analysis:** Comprehensive PYQ Analyzer
     """,
-    version="1.0.0",
-    terms_of_service="http://localhost:8000/terms/",
+    version="1.1.0",
+    docs_url=None, # Disable default docs to use custom ones
+    redoc_url=None,
     contact={
         "name": "Shridipa",
         "url": "https://github.com/Shridipa/LecGenAI",
-    },
-    license_info={
-        "name": "MIT License",
-    },
+    }
 )
 pyq_analyzer = PYQAnalyzer()
 
@@ -80,20 +110,47 @@ def save_history():
 # Load existing history on startup
 tasks = load_history()
 
+# --- Custom Documentation Endpoints ---
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Interactive Docs",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_favicon_url="https://cdn-icons-png.flaticon.com/512/2103/2103930.png",
+        swagger_ui_parameters={
+            "defaultModelsExpandDepth": -1, # Hide schemas by default for cleaner UI
+            "persistAuthorization": True,
+        }
+    )
+
+@app.get("/redoc", include_in_schema=False)
+async def redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - ReDoc",
+        redoc_favicon_url="https://cdn-icons-png.flaticon.com/512/2103/2103930.png",
+    )
+
 @app.get("/", tags=["System Information"])
 async def root():
-    """Health check endpoint to verify the API is online."""
-    return {"message": "LecGen AI API is running"}
+    """Verify that the LecGen AI Engine is online and operational."""
+    return {"status": "online", "engine": "LecGen AI v1.1.0"}
 
 @app.get("/ping")
 async def ping():
     return {"status": "ok"}
 
-@app.get("/tasks/{task_id}", tags=["Task Management"])
+@app.get("/tasks/{task_id}", tags=["Task Management"], response_model=TaskResponse)
 async def get_task_status(task_id: str):
     """
-    Check the current status of a processing task.
-    Returns 'pending', 'processing', 'completed', or 'failed'.
+    Check the current status and get results of a specific processing task.
+    
+    ### Statuses:
+    - **pending**: Task is in queue.
+    - **processing/compressing**: AI is analyzing content.
+    - **completed**: Results are ready.
+    - **failed**: An error occurred.
     """
     if task_id not in tasks:
         raise HTTPException(status_code=404, detail="Task not found")
