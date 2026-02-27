@@ -16,7 +16,32 @@ from fastapi.staticfiles import StaticFiles
 
 from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, HTTPException
 
-app = FastAPI(title="LecGen AI API")
+app = FastAPI(
+    title="LecGen AI - Educational Intelligence API",
+    description="""
+    ## 🚀 Project Overview
+    LecGen AI is an advanced educational intelligence platform designed to transform lectures into mastery. 
+    It processes video, audio, and text sources to generate:
+    *   **High-Accuracy Transcripts** using Whisper (base model)
+    *   **Concise Study Summaries** using DistilBART
+    *   **Practice Quizzes & Memory Cards** using T5 and RoBERTa
+    *   **PYQ Analysis** for exam preparation
+    
+    ### 🛠️ Key Support
+    *   **YouTube Integration** via yt-dlp
+    *   **Multi-format Uploads** (MP4, MP3, PDF, TXT)
+    *   **Multilingual Support** (English, Spanish, French)
+    """,
+    version="1.0.0",
+    terms_of_service="http://localhost:8000/terms/",
+    contact={
+        "name": "Shridipa",
+        "url": "https://github.com/Shridipa/LecGenAI",
+    },
+    license_info={
+        "name": "MIT License",
+    },
+)
 pyq_analyzer = PYQAnalyzer()
 
 # Ensure static directory exists
@@ -55,30 +80,37 @@ def save_history():
 # Load existing history on startup
 tasks = load_history()
 
-@app.get("/")
+@app.get("/", tags=["System Information"])
 async def root():
+    """Health check endpoint to verify the API is online."""
     return {"message": "LecGen AI API is running"}
 
 @app.get("/ping")
 async def ping():
     return {"status": "ok"}
 
-@app.get("/tasks/{task_id}")
+@app.get("/tasks/{task_id}", tags=["Task Management"])
 async def get_task_status(task_id: str):
+    """
+    Check the current status of a processing task.
+    Returns 'pending', 'processing', 'completed', or 'failed'.
+    """
     if task_id not in tasks:
         raise HTTPException(status_code=404, detail="Task not found")
     return tasks[task_id]
 
-@app.delete("/history/{task_id}")
+@app.delete("/history/{task_id}", tags=["History Management"])
 async def delete_history_item(task_id: str):
+    """Remove a specific analysis from the local history database."""
     if task_id in tasks:
         del tasks[task_id]
         save_history()
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Item not found")
 
-@app.get("/history/download/{task_id}")
+@app.get("/history/download/{task_id}", tags=["History Management"])
 async def download_history_result(task_id: str):
+    """Download the full JSON result of a previous analysis."""
     if task_id not in tasks or "result" not in tasks[task_id]:
         raise HTTPException(status_code=404, detail="Result not found")
     
@@ -97,8 +129,9 @@ async def download_history_result(task_id: str):
         filename=f"{safe_title}.json"
     )
 
-@app.get("/history")
+@app.get("/history", tags=["History Management"])
 async def get_all_history():
+    """Retrieve a list of all successfully completed analysis tasks."""
     # Return sorted history (newest first)
     history_list = []
     for tid, data in tasks.items():
@@ -176,8 +209,12 @@ def run_processing_task(task_id: str, source_type: str, data: str, target_lang: 
     
     save_history()
 
-@app.post("/process/youtube")
+@app.post("/process/youtube", tags=["Lecture Processing"])
 async def process_youtube(background_tasks: BackgroundTasks, url: str = Form(...)):
+    """
+    Submit a YouTube URL for AI analysis.
+    Downloads audio, transcribes, and generates study materials asynchronously.
+    """
     task_id = str(uuid.uuid4())
     tasks[task_id] = {
         "status": "pending", 
@@ -189,8 +226,12 @@ async def process_youtube(background_tasks: BackgroundTasks, url: str = Form(...
     background_tasks.add_task(run_processing_task, task_id, "youtube", url)
     return {"task_id": task_id}
 
-@app.post("/process/file")
+@app.post("/process/file", tags=["Lecture Processing"])
 async def process_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    """
+    Upload a video or audio file for analysis.
+    Supports MP4, MKV, AVI, MOV for video and MP3/WAV for audio.
+    """
     try:
         file_ext = file.filename.split(".")[-1].lower()
         temp_path = os.path.join(UPLOAD_FOLDER, f"upload_{uuid.uuid4().hex}.{file_ext}")
@@ -220,8 +261,12 @@ async def process_file(background_tasks: BackgroundTasks, file: UploadFile = Fil
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/process/text")
+@app.post("/process/text", tags=["Lecture Processing"])
 async def process_text(background_tasks: BackgroundTasks, text: str = Form(...)):
+    """
+    Process raw text/notes directly to generate study guides.
+    Useful for existing transcripts or lecture notes.
+    """
     task_id = str(uuid.uuid4())
     tasks[task_id] = {
         "status": "pending", 
@@ -233,8 +278,12 @@ async def process_text(background_tasks: BackgroundTasks, text: str = Form(...))
     background_tasks.add_task(run_processing_task, task_id, "text", text)
     return {"task_id": task_id}
 
-@app.post("/translate/{task_id}")
+@app.post("/translate/{task_id}", tags=["Knowledge Translation"])
 async def translate_task_result(task_id: str, target_lang: str = Form(...)):
+    """
+    Translate an existing analysis result into a different language.
+    Utilizes high-speed cloud translation services.
+    """
     if task_id not in tasks or "result" not in tasks[task_id]:
         raise HTTPException(status_code=404, detail="Task result not found")
         
@@ -255,8 +304,12 @@ async def translate_task_result(task_id: str, target_lang: str = Form(...)):
 
 from typing import List
 
-@app.post("/analyze/pyq")
+@app.post("/analyze/pyq", tags=["Exam Preparation"])
 def analyze_pyq(files: List[UploadFile] = File(default=None), drive_link: str = Form(default=None)):
+    """
+    Perform a Previous Year Question (PYQ) analysis.
+    Accepts direct file uploads or a Google Drive link containing multiple documents.
+    """
     try:
         temp_files = []
         
