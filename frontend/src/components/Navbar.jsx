@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Brain, Star } from 'lucide-react';
+import { Brain } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { translations } from '../translations';
@@ -51,11 +51,8 @@ const Navbar = () => {
           ))}
         </div>
 
+        {/* Action Gap Container - Keeps layout balanced */}
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-2 glass-pill hover:bg-white/10 cursor-pointer group transition-all border-primary/20">
-            <Star className="text-yellow-400 fill-yellow-400 group-hover:scale-110 transition-transform drop-shadow-sm" size={11} />
-            <span className="text-[9px] font-black uppercase text-premium tracking-widest">v1.0.0</span>
-          </div>
         </div>
       </div>
     </nav>
