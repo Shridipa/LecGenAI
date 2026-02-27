@@ -1,0 +1,21 @@
+# Ignore heavy AI backend files for Vercel deployment
+# Vercel has a 500MB limit; these files exceed 8GB
+api/
+processor.py
+main.py
+requirements.txt
+venv/
+__pycache__/
+outputs/
+uploads/
+streamlit_app.py
+history.json
+static/
+*.bat
+venv/
+node_modules/
+package-lock.json
+package.json
+API_DOCUMENTATION.md
+QUICK_REFERENCE.md
+*.md

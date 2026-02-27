@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "public": true,
+  "name": "lecgen-ai",
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "frontend/$1"
+    }
+  ]
+}
