@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LecGen AI | Documentation Reference</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      :root {
+        --bg-dark: #020617;
+        --accent: #3b82f6;
+        --secondary: #10b981;
+        --border: rgba(255, 255, 255, 0.05);
+      }
+      body {
+        background-color: var(--bg-dark);
+        font-family: "Plus Jakarta Sans", sans-serif;
+        color: #f8fafc;
+        overflow-x: hidden;
+      }
+      .grid-bg {
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 50px 50px;
+      }
+      .code-font {
+        font-family: "JetBrains Mono", monospace;
+      }
+      .glass {
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--border);
+      }
+      .glow {
+        box-shadow: 0 0 50px -12px var(--accent);
+      }
+      .pill {
+        @apply px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all;
+      }
+      .animate-subtle {
+        animation: float 6s ease-in-out infinite;
+      }
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+    </style>
+  </head>
+  <body class="grid-bg min-h-screen">
+    <div class="max-w-6xl mx-auto px-8 pt-24 pb-32">
+      <!-- Header Section -->
+      <header class="mb-24 relative">
+        <div class="flex items-center gap-3 mb-8 opacity-60">
+          <span
+            class="text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500"
+            >LecGen AI Project</span
+          >
+          <span class="w-12 h-[1px] bg-white/20"></span>
+          <span class="text-[11px] font-bold uppercase tracking-[0.3em]"
+            >Knowledge Reference</span
+          >
+        </div>
+
+        <h1
+          class="text-6xl md:text-8xl font-extrabold mb-10 tracking-tight leading-[1.1]"
+        >
+          Educational Intelligence <br />
+          <span
+            class="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400 italic"
+            >Fundamentals</span
+          >
+        </h1>
+
+        <p class="text-xl text-slate-400 max-w-2xl leading-relaxed mb-12">
+          A deep-dive technical reference covering the core AI pipelines
+          powering LecGen's real-time lecture transformation — from raw audio
+          streams to structured study nodes.
+        </p>
+
+        <div class="flex flex-wrap gap-4 mb-20">
+          <div
+            class="px-5 py-2 rounded-xl border border-blue-500/20 bg-blue-500/5 text-blue-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+          >
+            <i data-lucide="cpu" class="w-3 h-3"></i> Fast-Whisper
+          </div>
+          <div
+            class="px-5 py-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+          >
+            <i data-lucide="layers" class="w-3 h-3"></i> DistilBART
+          </div>
+          <div
+            class="px-5 py-2 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+          >
+            <i data-lucide="brain" class="w-3 h-3"></i> T5-Small
+          </div>
+          <div
+            class="px-5 py-2 rounded-xl border border-white/10 bg-white/5 text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+          >
+            <i data-lucide="server" class="w-3 h-3"></i> FastAPI
+          </div>
+        </div>
+
+        <div
+          class="w-full h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent"
+        ></div>
+      </header>
+
+      <!-- Pipeline Section -->
+      <section class="mb-32">
+        <div class="flex items-center gap-4 mb-12">
+          <span
+            class="code-font text-blue-500 text-sm font-bold tracking-tighter"
+            >// THE 5-STEP PIPELINE — HOW EACH TOPIC CONNECTS</span
+          >
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <!-- Step 1 -->
+          <div
+            class="glass p-6 rounded-2xl group hover:border-blue-500/30 transition-all border-l-4 border-l-blue-500"
+          >
+            <div
+              class="text-[10px] font-bold text-blue-500 uppercase mb-4 tracking-widest"
+            >
+              01. Ingestion
+            </div>
+            <h3 class="text-lg font-bold mb-3">Multi-Source Entry</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              System accepts YouTube URLs, local video/audio, and raw lecture
+              notes.
+            </p>
+          </div>
+
+          <!-- Step 2 -->
+          <div
+            class="glass p-6 rounded-2xl group hover:border-emerald-500/30 transition-all border-l-4 border-l-emerald-500"
+          >
+            <div
+              class="text-[10px] font-bold text-emerald-500 uppercase mb-4 tracking-widest"
+            >
+              02. Extraction
+            </div>
+            <h3 class="text-lg font-bold mb-3">Audio Decoding</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              FFmpeg peels audio layers at 64k bitrate for optimized AI
+              listening.
+            </p>
+          </div>
+
+          <!-- Step 3 -->
+          <div
+            class="glass p-6 rounded-2xl group hover:border-indigo-500/30 transition-all border-l-4 border-l-indigo-500"
+          >
+            <div
+              class="text-[10px] font-bold text-indigo-500 uppercase mb-4 tracking-widest"
+            >
+              03. Transcription
+            </div>
+            <h3 class="text-lg font-bold mb-3">Whisper Base</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              Neural transcription with VAD filters converts speech to
+              high-fidelity text.
+            </p>
+          </div>
+
+          <!-- Step 4 -->
+          <div
+            class="glass p-6 rounded-2xl group hover:border-amber-500/30 transition-all border-l-4 border-l-amber-500"
+          >
+            <div
+              class="text-[10px] font-bold text-amber-500 uppercase mb-4 tracking-widest"
+            >
+              04. Synthesis
+            </div>
+            <h3 class="text-lg font-bold mb-3">Transformer Labs</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              T5 and DistilBART distill core concepts into summaries and
+              quizzes.
+            </p>
+          </div>
+
+          <!-- Step 5 -->
+          <div
+            class="glass p-6 rounded-2xl group hover:border-purple-500/30 transition-all border-l-4 border-l-purple-500"
+          >
+            <div
+              class="text-[10px] font-bold text-purple-500 uppercase mb-4 tracking-widest"
+            >
+              05. Delivery
+            </div>
+            <h3 class="text-lg font-bold mb-3">Knowledge Nodes</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              Interactive cards and study paths delivered via Glassmorphic React
+              UI.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Technical Specs -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+        <section>
+          <h4 class="text-2xl font-bold mb-8 flex items-center gap-3">
+            <i data-lucide="terminal" class="text-blue-500"></i>
+            API Interface
+          </h4>
+          <div class="space-y-4">
+            <a
+              href="/docs"
+              target="_blank"
+              class="block glass p-6 rounded-2xl hover:bg-white/[0.04] transition-all"
+            >
+              <div class="flex justify-between items-center mb-2">
+                <span class="font-bold">Swagger Documentation</span>
+                <i data-lucide="external-link" class="w-4 h-4 opacity-40"></i>
+              </div>
+              <p class="text-xs text-slate-500 italic">
+                Explore interactive endpoints at /docs
+              </p>
+            </a>
+            <a
+              href="/redoc"
+              target="_blank"
+              class="block glass p-6 rounded-2xl hover:bg-white/[0.04] transition-all"
+            >
+              <div class="flex justify-between items-center mb-2">
+                <span class="font-bold">ReDoc Reference</span>
+                <i data-lucide="external-link" class="w-4 h-4 opacity-40"></i>
+              </div>
+              <p class="text-xs text-slate-500 italic">
+                Technical manual view at /redoc
+              </p>
+            </a>
+          </div>
+        </section>
+
+        <section>
+          <h4 class="text-2xl font-bold mb-8 flex items-center gap-3">
+            <i data-lucide="shield-check" class="text-emerald-500"></i>
+            Engine Performance
+          </h4>
+          <div class="glass p-8 rounded-3xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-8 opacity-5">
+              <i data-lucide="zap" class="w-24 h-24"></i>
+            </div>
+            <ul class="space-y-6">
+              <li class="flex items-start gap-4">
+                <div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2"></div>
+                <div>
+                  <span class="text-sm font-bold block mb-1"
+                    >Sub-60s Generation</span
+                  >
+                  <p class="text-xs text-slate-500 leading-relaxed">
+                    Parallelized Tpool executors ensure all study nodes are
+                    generated simultaneously.
+                  </p>
+                </div>
+              </li>
+              <li class="flex items-start gap-4">
+                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2"></div>
+                <div>
+                  <span class="text-sm font-bold block mb-1"
+                    >Neural Correctness</span
+                  >
+                  <p class="text-xs text-slate-500 leading-relaxed">
+                    Multi-model verification layer validates quiz answers
+                    against lecture transcripts.
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </section>
+      </div>
+
+      <footer
+        class="mt-40 text-center opacity-30 text-[10px] font-bold uppercase tracking-[0.5em]"
+      >
+        LecGen AI Engine • Version 1.1.0 • Technical Documentation
+      </footer>
+    </div>
+
+    <script>
+      lucide.createIcons();
+    </script>
+  </body>
+</html>

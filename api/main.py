@@ -132,6 +132,12 @@ async def redoc_html():
         redoc_favicon_url="https://cdn-icons-png.flaticon.com/512/2103/2103930.png",
     )
 
+@app.get("/api-reference", response_class=HTMLResponse, include_in_schema=False)
+async def api_reference():
+    """Serve the premium visual documentation page."""
+    with open("static/DOCUMENTATION.html", "r", encoding="utf-8") as f:
+        return f.read()
+
 @app.get("/", tags=["System Information"])
 async def root():
     """Verify that the LecGen AI Engine is online and operational."""
