@@ -23,6 +23,7 @@ import { useSettings } from '../context/SettingsContext';
 import { translations } from '../translations';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { API_BASE_URL } from '../config';
 
 const Results = () => {
   const location = useLocation();
@@ -60,7 +61,7 @@ const Results = () => {
     try {
       const formData = new FormData();
       formData.append('target_lang', selectedLang);
-      const response = await axios.post(`http://localhost:8000/translate/${taskId}`, formData);
+      const response = await axios.post(`${API_BASE_URL}/translate/${taskId}`, formData);
       if (response.data.status === 'success') {
         setResult(response.data.result);
       }

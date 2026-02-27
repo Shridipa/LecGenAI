@@ -16,6 +16,7 @@ import {
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { API_BASE_URL } from '../config';
 
 const PYQAnalytics = () => {
   const [files, setFiles] = useState([]);
@@ -47,7 +48,7 @@ const PYQAnalytics = () => {
     }
 
     try {
-      const response = await axios.post('http://localhost:8000/analyze/pyq', formData);
+      const response = await axios.post(`${API_BASE_URL}/analyze/pyq`, formData);
       setResult(response.data);
     } catch (err) {
       setError(err.response?.data?.detail || 'Analysis failed. Please check your files or link.');

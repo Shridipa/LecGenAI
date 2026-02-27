@@ -21,7 +21,7 @@ import { translations } from '../translations';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '../config';
 
 const Home = () => {
   const [inputType, setInputType] = useState('youtube');

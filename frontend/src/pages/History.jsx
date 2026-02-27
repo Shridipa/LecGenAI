@@ -17,6 +17,7 @@ import { useSettings } from '../context/SettingsContext';
 import { translations } from '../translations';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { API_BASE_URL } from '../config';
 
 const History = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,7 +28,7 @@ const History = () => {
   const t = translations[language];
   const navigate = useNavigate();
 
-  const API_BASE_URL = 'http://localhost:8000';
+
 
   React.useEffect(() => {
     const fetchHistory = async () => {
