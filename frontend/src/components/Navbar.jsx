@@ -15,7 +15,6 @@ const Navbar = () => {
     { path: '/history', label: t.history },
     { path: '/pyq-analysis', label: 'PYQ Analysis' },
     { path: '/settings', label: t.settings },
-    { path: '/pricing', label: t.pricing },
   ];
 
   return (
@@ -53,15 +52,9 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            to="/signin"
-            className="text-[10px] font-semibold hover:text-primary transition-colors uppercase tracking-widest text-main"
-          >
-            {t.signin}
-          </Link>
           <div className="hidden sm:flex items-center gap-2 px-3 py-2 glass-pill hover:bg-white/10 cursor-pointer group transition-all border-primary/20">
             <Star className="text-yellow-400 fill-yellow-400 group-hover:scale-110 transition-transform drop-shadow-sm" size={11} />
-            <span className="text-[9px] font-black uppercase text-premium tracking-widest">{t.proMember}</span>
+            <span className="text-[9px] font-black uppercase text-premium tracking-widest">v1.0.0</span>
           </div>
         </div>
       </div>

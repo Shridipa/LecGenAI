@@ -1,5 +1,5 @@
 import React from 'react';
-import { Moon, Sun, Globe, Bell, User, Lock } from 'lucide-react';
+import { Moon, Sun, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { translations } from '../translations';
@@ -7,7 +7,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
 const Settings = () => {
-  const { theme, setTheme, language, setLanguage, notifications, setNotifications } = useSettings();
+  const { theme, setTheme, language, setLanguage } = useSettings();
   const t = translations[language];
 
   const settingsSections = [
@@ -41,46 +41,6 @@ const Settings = () => {
           ],
           value: language,
           onChange: setLanguage,
-        },
-      ],
-    },
-    {
-      title: t.notifications,
-      icon: Bell,
-      items: [
-        {
-          label: t.emailNotifications,
-          type: 'checkbox',
-          checked: notifications.email,
-          onChange: () => setNotifications({ ...notifications, email: !notifications.email }),
-        },
-        {
-          label: t.pushNotifications,
-          type: 'checkbox',
-          checked: notifications.push,
-          onChange: () => setNotifications({ ...notifications, push: !notifications.push }),
-        },
-        {
-          label: t.weeklySummary,
-          type: 'checkbox',
-          checked: notifications.weekly,
-          onChange: () => setNotifications({ ...notifications, weekly: !notifications.weekly }),
-        },
-      ],
-    },
-    {
-      title: t.account,
-      icon: User,
-      items: [
-        {
-          label: 'Email',
-          type: 'display',
-          value: 'user@example.com',
-        },
-        {
-          label: 'Plan',
-          type: 'display',
-          value: t.proMember,
         },
       ],
     },
@@ -178,33 +138,6 @@ const Settings = () => {
               </div>
             </motion.div>
           ))}
-
-          {/* Security Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="glass rounded-2xl p-6 border-white/5"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-error">
-                <Lock size={20} />
-              </div>
-              <h2 className="text-lg font-bold">{t.security}</h2>
-            </div>
-
-            <div className="space-y-3">
-              <button className="w-full px-6 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold transition-all text-left text-main">
-                {t.changePassword}
-              </button>
-              <button className="w-full px-6 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold transition-all text-left text-main">
-                {t.twoFactor}
-              </button>
-              <button className="w-full px-6 py-3 bg-error/10 hover:bg-error/20 rounded-xl text-sm font-bold text-error transition-all text-left border border-error/20">
-                {t.deleteAccount}
-              </button>
-            </div>
-          </motion.div>
         </div>
       </main>
 
