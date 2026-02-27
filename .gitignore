@@ -8,3 +8,13 @@ outputs/
 .streamlit/
 ffmpeg/
 node_modules/
+history.json
+*.log
+.vscode/
+dist/
+build/
+*.mp3
+*.mp4
+*.mkv
+lecture.mp3
+temp_*.json
