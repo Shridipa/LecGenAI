@@ -13,7 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 # from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer, AutoModelForQuestionAnswering # Moved to lazy load
 
 
-
+# Ultra-optimized worker pool (2-3 is better for heavy models on CPU to avoid thrashing)
+_executor = ThreadPoolExecutor(max_workers=3 if torch.cuda.is_available() else 2)
 
 def translate_text(text, target_lang):
     if not text or target_lang == 'en': return text
@@ -90,14 +91,14 @@ def _create_summarizer(model_name):
         return manual_summ
 
 def get_summarizer():
-    # Switched to distilbart for speed (300MB vs 1.6GB)
+    # Switched to distilbart-6-6 for ultra speed (half the layers of 12-6)
     if 'summarizer' not in _models:
-        _models['summarizer'] = _create_summarizer("sshleifer/distilbart-cnn-12-6")
+        _models['summarizer'] = _create_summarizer("sshleifer/distilbart-cnn-6-6")
     return _models['summarizer']
 
 def get_qg_generator():
     if 'qg' not in _models:
-        model_name = "valhalla/t5-base-e2e-qg"
+        model_name = "valhalla/t5-small-e2e-qg" # Switched to 'small' for speed
         kwargs = {"device": device} if device == 0 else {}
         if device == 0:
             kwargs["torch_dtype"] = torch.float16
@@ -120,7 +121,7 @@ def get_qg_generator():
 
 def get_qa_answerer():
     if 'qa' not in _models:
-        model_name = "deepset/roberta-base-squad2"
+        model_name = "deepset/tinyroberta-squad2" # Switched to 'tiny' for speed
         kwargs = {"device": device} if device == 0 else {}
         if device == 0:
             kwargs["torch_dtype"] = torch.float16
@@ -161,8 +162,8 @@ def chunk_text(text, max_chars=3000):
 def summarize_text(text):
     if not text: return ""
     summarizer = get_summarizer()
-    # Reduced max_chars to stay within 512 token limit for most models
-    chunks = chunk_text(text, max_chars=2000)[:8] 
+    # Process fewer, larger chunks to reduce model overhead
+    chunks = chunk_text(text, max_chars=3000)[:4] 
     summaries = []
     
     try:
@@ -191,7 +192,7 @@ def generate_important_questions(text):
     qg = get_qg_generator()
     qa = get_qa_answerer()
     
-    chunks = chunk_text(text, max_chars=2000)[:6]
+    chunks = chunk_text(text, max_chars=3000)[:3]
     qa_list = []
     
     try:
@@ -237,8 +238,8 @@ def generate_quiz(text, is_pro=False):
     qg = get_qg_generator()
     qa = get_qa_answerer()
     
-    max_questions = 20
-    chunks = chunk_text(text, max_chars=2000)[:5] 
+    max_questions = 12 # Reduced count for speed
+    chunks = chunk_text(text, max_chars=3000)[:3] 
     questions = []
     
     try:
@@ -439,7 +440,14 @@ def process_lecture(source_type, data, target_lang='en'):
         # Upgraded to 'base' for better 'correctness' as requested, while still being very fast.
         model = get_whisper_model("base")
         # Added VAD filter for extra speed and better silence handling
-        segments, info = model.transcribe(audio_path, beam_size=1, temperature=0, vad_filter=True, task="transcribe")
+        segments, info = model.transcribe(
+            audio_path, 
+            beam_size=1, 
+            temperature=0, 
+            vad_filter=True, 
+            task="transcribe",
+            initial_prompt="Educational lecture with clear terminology."
+        )
         transcript = "".join([segment.text for segment in segments])
         
     if not transcript:

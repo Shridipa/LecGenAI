@@ -295,5 +295,13 @@
         "date": "2026-02-27 20:35:47",
         "language": "en",
         "error": "AI Engine failed to extract content."
+    },
+    "d3e65f8f-97a1-4a85-b15b-6cf2a51f3dff": {
+        "status": "failed",
+        "type": "youtube",
+        "title": "YouTube: https://www.youtube.com/watch?...",
+        "date": "2026-02-27 20:52:05",
+        "language": "en",
+        "error": "AI Engine failed to extract content."
     }
 }
