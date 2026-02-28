@@ -214,29 +214,40 @@ def summarize_text(text):
     return "\n".join(bullet_points)
 
 def generate_important_questions(text):
-    """Extract Q&A using the distilbert-squad QA approach from last month."""
+    """Extract Q&A using T5 for generation and distilbert-squad for answering."""
     if not text: return []
+    qg = get_qg_generator()
     qa = get_qa_answerer()
     words = text.split()
     chunks = [" ".join(words[i:i+800]) for i in range(0, len(words), 800)]
     qa_list = []
-    
-    q_list = [
-        "What is a key concept in this section?",
-        "What does this section explain?",
-        "What is the main topic?"
-    ]
-    seen_ans = set()
+    seen = set()
     
     for chunk in chunks[:4]:
-        for q in q_list:
-            try:
-                ans = qa(question=q, context=chunk)["answer"].strip()
-                if len(ans) > 3 and ans.lower() not in seen_ans:
-                    qa_list.append({"question": q, "answer": ans, "type": "short"})
-                    seen_ans.add(ans.lower())
-            except:
-                pass
+        try:
+            # T5 generates the question based on the content
+            q = qg(f"generate questions: {chunk}", max_length=128)[0]["generated_text"].strip()
+            # Distilbert provides the exact answer
+            ans = qa(question=q, context=chunk)["answer"].strip()
+            
+            if len(ans) > 2 and q.lower() not in seen:
+                qa_list.append({"question": q, "answer": ans, "type": "short"})
+                seen.add(q.lower())
+        except Exception:
+            pass
+
+    # Ensure UI never gets empty array if AI struggles with specific chunks
+    if len(qa_list) < 2:
+        for chunk in chunks[:2]:
+            for fallback_q in ["What is a key concept in this section?", "What does this section explain?"]:
+                try:
+                    ans = qa(question=fallback_q, context=chunk)["answer"].strip()
+                    if len(ans) > 2 and fallback_q.lower() not in seen:
+                        qa_list.append({"question": fallback_q, "answer": ans, "type": "long"})
+                        seen.add(fallback_q.lower())
+                except Exception:
+                    continue
+
     return qa_list
 
 def generate_notes(text):
@@ -272,21 +283,34 @@ def generate_quiz(text, is_pro=False):
     seen = set()
     for chunk in chunks[:4]: 
         try:
-            # Replicating original quiz_generator(chunk)
-            q = qg(chunk, max_length=256)[0]["generated_text"].strip()
-            if len(q) > 10 and q.lower() not in seen:
-                # Structure for the UI
+            # T5 generates context-specific question
+            q = qg(f"generate questions: {chunk}", max_length=256)[0]["generated_text"].strip()
+            # Distilbert scores the exact answer
+            ans = qa(question=q, context=chunk)["answer"].strip()
+            
+            if len(ans) > 2 and q.lower() not in seen:
                 questions.append({
                     "id": idx,
                     "type": "short",
-                    "question": "What is the key takeaway from this specific segment?",
-                    "correct": q,
-                    "explanation": "Extracted via valhalla/t5"
+                    "question": q,
+                    "correct": ans,
+                    "explanation": f"AI verified answer: {ans}"
                 })
                 seen.add(q.lower())
                 idx += 1
         except Exception:
             pass
+            
+    # Guarantee at least one valid quiz question returns via fallback
+    if len(questions) == 0 and chunks:
+        try:
+            q = "What is the primary topic of the lecture?"
+            ans = qa(question=q, context=chunks[0])["answer"].strip()
+            questions.append({
+                "id": idx, "type": "short", "question": q, 
+                "correct": ans, "explanation": "Fallback verification"
+            })
+        except Exception: pass
             
     return questions
 
