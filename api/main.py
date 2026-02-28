@@ -149,14 +149,10 @@ pyq_analyzer = PYQAnalyzer()
 os.makedirs("static/images", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Enable CORS for React frontend and tunnel
+# Enable CORS for React frontend (Allow all origins for testing)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://lec-gen-ai-96pc.vercel.app",
-        "https://exceptional-routines-pottery-headers.trycloudflare.com"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
