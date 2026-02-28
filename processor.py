@@ -275,6 +275,7 @@ def generate_quiz(text, is_pro=False):
     """Generate quiz components by piping standard text into t5-qa-qg (one month ago behavior)."""
     if not text: return []
     qg = get_qg_generator()
+    qa = get_qa_answerer()
     words = text.split()
     chunks = [" ".join(words[i:i+800]) for i in range(0, len(words), 800)]
     questions = []
