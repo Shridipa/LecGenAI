@@ -19,14 +19,50 @@ _executor = ThreadPoolExecutor(max_workers=3 if torch.cuda.is_available() else 2
 def translate_text(text, target_lang):
     if not text or target_lang == 'en': return text
     
-    # High-speed cloud translation (deferred import for resilience)
-    from deep_translator import GoogleTranslator
+    # Upgraded to NLLB-200 for high-fidelity academic translation
+    NLLB_LANG_MAP = {
+        'es': 'spa_Latn', 'fr': 'fra_Latn', 'de': 'deu_Latn',
+        'hi': 'hin_Deva', 'zh': 'zho_Hans', 'ar': 'arb_Arab',
+        'pt': 'por_Latn', 'ru': 'rus_Cyrl', 'ja': 'jpn_Jpan',
+        'ko': 'kor_Hang', 'it': 'ita_Latn', 'bn': 'ben_Beng',
+    }
+    nllb_target = NLLB_LANG_MAP.get(target_lang)
     
-    # Map from Helsinki names if needed, but deep-translator uses standard codes (es, fr, etc.)
+    if nllb_target:
+        try:
+            from transformers import pipeline as hf_pipeline
+            if 'translator' not in _models:
+                print("Loading NLLB-200 translation model...")
+                _models['translator'] = hf_pipeline(
+                    "translation",
+                    model="facebook/nllb-200-distilled-600M",
+                    src_lang="eng_Latn",
+                    tgt_lang=nllb_target,
+                    device=device
+                )
+            else:
+                # Update target lang on existing pipeline
+                _models['translator'].tokenizer.src_lang = "eng_Latn"
+                _models['translator'].task_specific_params = {"translation": {"tgt_lang": nllb_target}}
+            
+            # Chunk long texts to avoid token limit
+            if len(text) > 1000:
+                chunks = chunk_text(text, max_chars=800)
+                translated_chunks = []
+                for c in chunks:
+                    result = _models['translator'](c, tgt_lang=nllb_target, max_length=512)
+                    translated_chunks.append(result[0]['translation_text'])
+                return " ".join(translated_chunks)
+            
+            result = _models['translator'](text, tgt_lang=nllb_target, max_length=512)
+            return result[0]['translation_text']
+        except Exception as e:
+            print(f"NLLB translation error: {e}, falling back to Google Translate")
+    
+    # Fallback to cloud Google Translate for unsupported or on error
     try:
+        from deep_translator import GoogleTranslator
         translator = GoogleTranslator(source='auto', target=target_lang)
-        # Handle large text by chunking if needed, but GoogleTranslator handle large strings reasonably well.
-        # However, to be extra safe and avoid API limits on single long strings:
         if len(text) > 4500:
             chunks = chunk_text(text, max_chars=4000)
             return " ".join([translator.translate(c) for c in chunks])
@@ -56,7 +92,7 @@ compute_type = "float16" if torch.cuda.is_available() else "int8"
 _models = {}
 _warmup_lock = Lock()
 
-def get_whisper_model(model_name='base'):  # Reverted back to base model size as requested
+def get_whisper_model(model_name='large-v2'):  # Upgraded to large-v2 for best accuracy
     if 'whisper' not in _models:
         from faster_whisper import WhisperModel
         print(f"Loading faster-whisper model: {model_name} on {device_type} with {compute_type}...")
@@ -68,7 +104,7 @@ def _warmup_all_models():
     with _warmup_lock:
         print("⚡ Pre-warming all AI models in background...")
         try:
-            get_whisper_model('base')
+            get_whisper_model('large-v2')
             get_summarizer()
             get_qg_generator()
             get_qa_answerer()
@@ -105,15 +141,15 @@ def _create_summarizer(model_name):
         return manual_summ
 
 def get_summarizer():
-    # Reverted to full BART Large CNN
+    # facebook/bart-large-cnn — best fit for extractive lecture summarization
     if 'summarizer' not in _models:
         _models['summarizer'] = _create_summarizer("facebook/bart-large-cnn")
     return _models['summarizer']
 
 def get_qg_generator():
     if 'qg' not in _models:
-        # Reverted back to the original QA-QG model
-        model_name = "valhalla/t5-small-qa-qg-hl"
+        # Upgraded to flan-t5-large for higher quality question generation
+        model_name = "google/flan-t5-large"
         kwargs = {"device": device} if device == 0 else {}
         if device == 0:
             kwargs["torch_dtype"] = torch.float16
@@ -130,16 +166,8 @@ def get_qg_generator():
             def manual_qg(text, **gen_kwargs):
                 if not isinstance(text, list): text = [text]
                 inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding=True).to(model.device)
-                
-                # E2E-QG model needs specific parameters to avoid repetitive generation
-                gen_params = {
-                    "max_new_tokens": 128,
-                    "num_beams": 4,
-                    "early_stopping": True,
-                    **gen_kwargs
-                }
+                gen_params = {"max_new_tokens": 128, "num_beams": 4, "early_stopping": True, **gen_kwargs}
                 out = model.generate(**inputs, **gen_params)
-                
                 results = []
                 for idx in range(len(text)):
                     results.append({"generated_text": tokenizer.decode(out[idx], skip_special_tokens=True)})
@@ -149,7 +177,8 @@ def get_qg_generator():
 
 def get_qa_answerer():
     if 'qa' not in _models:
-        model_name = "distilbert-base-uncased-distilled-squad" # Reverted to DistilBERT SQuAD
+        # Upgraded to deepset/roberta-base-squad2 for higher precision answer extraction
+        model_name = "deepset/roberta-base-squad2"
         kwargs = {"device": device} if device == 0 else {}
         if device == 0:
             kwargs["torch_dtype"] = torch.float16
@@ -451,16 +480,15 @@ def process_lecture(source_type, data, target_lang='en'):
         transcript = data
         
     if audio_path and not transcript:
-        # 'tiny' model: 3x faster than 'base', adequate accuracy for educational content
-        model = get_whisper_model("tiny")
-        # beam_size=1 + VAD filter = maximum speed without accuracy loss for lectures
+        # Use large-v2 for best accuracy on academic lectures
+        model = get_whisper_model("large-v2")
         segments, info = model.transcribe(
             audio_path, 
-            beam_size=1, 
+            beam_size=5, 
             temperature=0, 
             vad_filter=True, 
             task="transcribe",
-            initial_prompt="Educational lecture with clear terminology."
+            initial_prompt="Educational lecture with clear terminology and technical jargon."
         )
         transcript = "".join([segment.text for segment in segments])
         
