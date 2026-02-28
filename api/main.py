@@ -155,7 +155,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://lec-gen-ai-96pc.vercel.app",
-        "https://ofe7hp-ip-103-106-200-60.tunnelmole.net"
+        "https://ofe7hp-ip-103-106-200-60.tunnelmole.net",
+        "https://fb19a7d08da3af.lhr.life"
     ],
     allow_credentials=True,
     allow_methods=["*"],
