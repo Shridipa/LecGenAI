@@ -188,39 +188,22 @@ def chunk_text(text, max_chars=3000):
     return chunks
 
 def summarize_text(text):
-    """Generate a clean bullet-point summary covering the ENTIRE content."""
+    """Generate a clean bullet-point summary exactly as done last month."""
     if not text: return ""
     summarizer = get_summarizer()
-    # No cap — process all chunks so the full lecture is covered
-    chunks = chunk_text(text, max_chars=3500)
+    words = text.split()
+    chunks = [" ".join(words[i:i+800]) for i in range(0, len(words), 800)]
     summaries = []
 
-    try:
-        if device == 0:  # GPU: batch all at once
-            results = summarizer(
-                chunks, max_length=160, min_length=50,
-                do_sample=False, truncation=True, batch_size=min(len(chunks), 4)
-            )
-            summaries = [res['summary_text'] for res in results if 'summary_text' in res]
-        else:  # CPU: parallel threads — processes all chunks concurrently
-            results = _executor.map(
-                lambda c: summarizer(c, max_length=160, min_length=50,
-                                     do_sample=False, truncation=True)[0]['summary_text'],
-                chunks
-            )
-            summaries = list(results)
-    except Exception as e:
-        print(f"Summary error: {e}")
-        for chunk in chunks:
-            try:
-                res = summarizer(chunk, max_length=160, min_length=50, do_sample=False, truncation=True)
-                summaries.append(res[0]['summary_text'])
-            except:
-                continue
+    for chunk in chunks:
+        try:
+            s = summarizer(chunk, max_length=200, min_length=50, do_sample=False)[0]["summary_text"]
+            summaries.append(s)
+        except Exception as e:
+            pass
 
     combined_text = " ".join(summaries)
     sentences = nltk.sent_tokenize(combined_text)
-    # Deduplicate and filter trivially short sentences
     seen = set()
     bullet_points = []
     for s in sentences:
@@ -231,212 +214,88 @@ def summarize_text(text):
     return "\n".join(bullet_points)
 
 def generate_important_questions(text):
-    """Generate important Q&A pairs from the ENTIRE content with quality filtering."""
+    """Extract Q&A using the distilbert-squad QA approach from last month."""
     if not text: return []
-    qg = get_qg_generator()
     qa = get_qa_answerer()
-
-    # No cap — all chunks processed, up to 3 questions each
-    chunks = chunk_text(text, max_chars=3500)
+    words = text.split()
+    chunks = [" ".join(words[i:i+800]) for i in range(0, len(words), 800)]
     qa_list = []
-
-    try:
-        q_prompts = [f"generate questions: {c}" for c in chunks]
-        # Process in batches of 4 to avoid memory pressure on CPU
-        q_results = []
-        for i in range(0, len(q_prompts), 4):
-            batch = q_prompts[i:i+4]
-            q_results.extend(qg(batch, batch_size=len(batch), truncation=True))
-
-        qa_inputs = []
-        for i, res in enumerate(q_results):
-            if not res or 'generated_text' not in res:
-                continue
-            # 3 questions per chunk to distribute coverage across full lecture
-            qs = [q.strip() for q in res['generated_text'].split("<sep>") if "?" in q][:3]
-            for q in qs:
-                qa_inputs.append({"question": q, "context": chunks[i]})
-
-        if qa_inputs:
-            # Batch answer extraction in groups of 8
-            all_answers = []
-            for i in range(0, len(qa_inputs), 8):
-                batch_q = qa_inputs[i:i+8]
-                res = qa(
-                    question=[x['question'] for x in batch_q],
-                    context=[x['context'] for x in batch_q],
-                    batch_size=len(batch_q),
-                    truncation=True
-                )
-                if not isinstance(res, list): res = [res]
-                all_answers.extend(res)
-
-            seen_q = set()
-            for i, ans in enumerate(all_answers):
-                if not ans or 'answer' not in ans:
-                    continue
-                q_text = qa_inputs[i]['question'].strip()
-                # Use raw string for deduplication (case-insensitive) to retain distinctiveness
-                q_lower = q_text.lower()
-                if q_lower in seen_q: 
-                    continue
-                seen_q.add(q_lower)
-
-                answer_text = ans['answer'].strip()
-                if len(answer_text) <= 3 or answer_text.lower() in {'the', 'a', 'an', 'is', 'it', 'of', 'in', 'to', 'for', 'and'}:
-                    continue
-
-                qa_list.append({
-                    "question": q_text,
-                    "answer": answer_text,
-                    "type": "long" if len(answer_text) > 60 else "short"
-                })
-    except Exception as e:
-        print(f"Batch QA error: {e}")
-
-    return qa_list[:30]  # Cap final output at 30, from all chunks
-
+    
+    q_list = [
+        "What is a key concept in this section?",
+        "What does this section explain?",
+        "What is the main topic?"
+    ]
+    seen_ans = set()
+    
+    for chunk in chunks[:4]:
+        for q in q_list:
+            try:
+                ans = qa(question=q, context=chunk)["answer"].strip()
+                if len(ans) > 3 and ans.lower() not in seen_ans:
+                    qa_list.append({"question": q, "answer": ans, "type": "short"})
+                    seen_ans.add(ans.lower())
+            except:
+                pass
+    return qa_list
 
 def generate_notes(text):
-    """
-    Generate structured, sectioned study notes — NOT a copy of the summary.
-    Sections: Overview | Key Concepts | Key Takeaways
-    """
+    """Generate notes strictly using the summarizer on chunks, exactly like early Jan."""
     if not text: return ""
     summarizer = get_summarizer()
-
-    sentences = nltk.sent_tokenize(text)
-    total = len(sentences)
-
-    # Divide transcript into 3 logical thirds: intro, body, conclusion
-    third = max(1, total // 3)
-    intro_text   = " ".join(sentences[:third])
-    body_text    = " ".join(sentences[third: 2 * third])
-    closing_text = " ".join(sentences[2 * third:])
-
-    # Generate notes using the full pipeline against all sentences in that third
-    # This guarantees the ENTIRE audio is covered, not just the first 3500 characters
-    overview   = summarize_text(intro_text)
-    concepts   = summarize_text(body_text)
-    takeaways  = summarize_text(closing_text)
-
-    notes_parts = []
-
-    if overview:
-        notes_parts.append("## 📌 Overview")
-        for s in nltk.sent_tokenize(overview):
-            if s.strip(): notes_parts.append(f"  • {s.strip()}")
-
-    if concepts:
-        notes_parts.append("\n## 🔑 Key Concepts")
-        for s in nltk.sent_tokenize(concepts):
-            if s.strip(): notes_parts.append(f"  • {s.strip()}")
-
-    if takeaways:
-        notes_parts.append("\n## ✅ Key Takeaways")
-        for s in nltk.sent_tokenize(takeaways):
-            if s.strip(): notes_parts.append(f"  • {s.strip()}")
-
-    # Fallback: if all sections failed, use summarize_text
-    if not notes_parts:
-        return summarize_text(text)
-
+    words = text.split()
+    chunks = [" ".join(words[i:i+800]) for i in range(0, len(words), 800)]
+    summaries = []
+    
+    for chunk in chunks:
+        try:
+            s = summarizer(chunk, max_length=200, min_length=50, do_sample=False)[0]["summary_text"]
+            summaries.append(s)
+        except Exception:
+            pass
+            
+    notes_parts = ["## 📌 Key Notes"]
+    for s in summaries:
+        notes_parts.append(f"  • {s}")
+        
     return "\n".join(notes_parts)
 
 def generate_quiz(text, is_pro=False):
-    """Generate quality-filtered quiz questions from the ENTIRE content (MCQ + short answer)."""
+    """Generate quiz components by piping standard text into t5-qa-qg (one month ago behavior)."""
     if not text: return []
     qg = get_qg_generator()
-    qa = get_qa_answerer()
-
-    max_questions = 12  # Final output cap
-    # No chunk cap — all content is processed
-    chunks = chunk_text(text, max_chars=3500)
+    words = text.split()
+    chunks = [" ".join(words[i:i+800]) for i in range(0, len(words), 800)]
     questions = []
+    idx = 1
     
-    try:
-        q_prompts = [f"generate questions: {c}" for c in chunks]
-        # Process in batches of 4 to avoid memory pressure
-        q_results = []
-        for i in range(0, len(q_prompts), 4):
-            batch = q_prompts[i:i+4]
-            q_results.extend(qg(batch, batch_size=len(batch), truncation=True))
-
-        qa_inputs = []
-        for i, res in enumerate(q_results):
-            if not res or 'generated_text' not in res: continue
-            qs = [q.strip() for q in res['generated_text'].split("<sep>") if "?" in q][:4]
-            for q in qs:
-                if len(qa_inputs) >= 30: break
-                qa_inputs.append({"question": q, "context": chunks[i]})
-        
-        if qa_inputs:
-            ans_results = qa(
-                question=[i['question'] for i in qa_inputs],
-                context=[i['context'] for i in qa_inputs],
-                batch_size=min(len(qa_inputs), 8),
-                truncation="only_second" # Best for QA to keep question
-            )
+    seen = set()
+    for chunk in chunks[:4]: 
+        try:
+            # Replicating original quiz_generator(chunk)
+            q = qg(chunk, max_length=256)[0]["generated_text"].strip()
+            if len(q) > 10 and q.lower() not in seen:
+                # Structure for the UI
+                questions.append({
+                    "id": idx,
+                    "type": "short",
+                    "question": "What is the key takeaway from this specific segment?",
+                    "correct": q,
+                    "explanation": "Extracted via valhalla/t5"
+                })
+                seen.add(q.lower())
+                idx += 1
+        except Exception:
+            pass
             
-            if not isinstance(ans_results, list): ans_results = [ans_results]
-            
-            seen_q = set()
-            for i, ans in enumerate(ans_results):
-                if not ans or 'answer' not in ans: continue
-                q_text = qa_inputs[i]['question'].strip()
-                
-                # Prevent duplicate questions exactly as written
-                q_lower = q_text.lower()
-                if q_lower in seen_q: 
-                    continue
-                seen_q.add(q_lower)
+    return questions
 
-                answer_text = ans['answer'].strip()
-                # Quality filter: skip empty, trivial single-word, or stop-word answers
-                if len(answer_text) <= 3 or answer_text.lower() in {'the','a','an','is','it','of','in','to','for','and'}:
-                    continue
-                
-                q_idx = len(questions) + 1
-                
-                if q_idx % 2 == 0: # MCQ
-                    words = list(set([w.strip(".,!?:;\"()[]") for w in qa_inputs[i]['context'].split() if len(w) > 4 and w.lower() not in answer_text.lower()]))
-                    random.shuffle(words)
-                    options = [answer_text] + words[:3]
-                    while len(options) < 4: options.append(f"Concept {len(options)+1}")
-                    random.shuffle(options)
-                    
-                    questions.append({
-                        "id": q_idx,
-                        "type": "mcq",
-                        "question": q_text,
-                        "options": options,
-                        "correct": answer_text,
-                        "explanation": f"Key Term: {answer_text}"
-                    })
-                else:
-                    questions.append({
-                        "id": q_idx,
-                        "type": "short",
-                        "question": q_text,
-                        "correct": answer_text,
-                        "explanation": f"Verified: {answer_text}"
-                    })
-                if len(questions) >= max_questions: break
-    except Exception as e:
-        print(f"Batch Quiz error: {e}")
-            
-    return questions[:max_questions]
-
-def generate_flashcards(quiz_data):
-    """Generate 10 flashcards from the highest-quality quiz items (prefer longer answers)."""
-    if not quiz_data: return []
-    # Sort to prefer richer answers on front/back
-    sorted_q = sorted(quiz_data, key=lambda x: len(x.get('correct', '')), reverse=True)
+def generate_flashcards(qa_data):
+    """Convert the dynamically generated explicit Q&A directly into flashcards."""
+    if not qa_data: return []
     cards = []
-    for q in sorted_q[:10]:
-        answer = q['correct'].strip()
-        if len(answer) >= 3:  # Only include if answer has real content
-            cards.append({"front": q['question'], "back": answer})
+    for item in qa_data[:10]:
+        cards.append({"front": item['question'], "back": item['answer']})
     return cards
 
 def inject_ffmpeg():
@@ -597,7 +456,7 @@ def process_lecture(source_type, data, target_lang='en'):
         "qa": qa_data,
         "notes": notes,
         "quiz": quiz_data,
-        "flashcards": generate_flashcards(quiz_data),
+        "flashcards": generate_flashcards(qa_data),
         "language": "en"
     }
 
