@@ -389,7 +389,7 @@ const QuizEngine = ({ questions }) => {
            </span>
         </div>
         <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-           <motion.div 
+           <Motion.div 
              className="h-full bg-primary"
              initial={{ width: 0 }}
              animate={{ width: `${((currentIdx + 1) / displayQuestions.length) * 100}%` }}

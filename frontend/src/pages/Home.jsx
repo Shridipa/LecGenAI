@@ -298,7 +298,7 @@ const Home = () => {
           </>
         ) : (
           /* Processing State */
-          <motion.div 
+          <Motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="min-h-[60vh] flex flex-col items-center justify-center p-8"
@@ -333,7 +333,7 @@ const Home = () => {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </Motion.div>
         )}
       </main>
 

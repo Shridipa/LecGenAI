@@ -19,3 +19,5 @@
 2026-02-28T05:48:06Z INF Starting metrics server on 127.0.0.1:20244/metrics
 2026-02-28T05:48:06Z INF Registered tunnel connection connIndex=0 connection=012bbd74-b1b4-4c6d-92be-08f08c8ab35d event=0 ip=198.41.200.113 location=bom11 protocol=http2
 2026-02-28T05:48:11Z ERR Failed to initialize DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-02-28T05:53:16Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-02-28T05:58:21Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
