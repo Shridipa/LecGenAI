@@ -149,10 +149,14 @@ pyq_analyzer = PYQAnalyzer()
 os.makedirs("static/images", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Enable CORS for React frontend (Allow all origins for testing)
+# Enable CORS for React frontend and tunnel
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://lec-gen-ai-96pc.vercel.app",
+        "https://ofe7hp-ip-103-106-200-60.tunnelmole.net"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
