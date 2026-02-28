@@ -57,10 +57,13 @@ const Navbar = () => {
         {/* Action Gap Container - Keeps layout balanced */}
         <div className="flex items-center gap-4">
           {user ? (
-            <div className="flex items-center gap-4">
-              <div className="hidden lg:flex flex-col items-end">
-                <span className="text-[10px] font-bold text-main">{user.name}</span>
-                <span className="text-[8px] opacity-40 uppercase tracking-widest">{user.email}</span>
+            <div className="flex items-center gap-3">
+              {/* User avatar icon — no personal info shown */}
+              <div
+                className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary via-accent to-secondary flex items-center justify-center shadow-inner"
+                title={user.name}
+              >
+                <UserIcon size={18} className="text-white" />
               </div>
               <button 
                 onClick={logout}

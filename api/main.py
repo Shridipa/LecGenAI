@@ -149,17 +149,20 @@ pyq_analyzer = PYQAnalyzer()
 os.makedirs("static/images", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Enable CORS for React frontend and tunnel
+# Pre-warm all AI models at startup (background thread — server remains responsive)
+import threading
+
+@app.on_event("startup")
+async def startup_event():
+    thread = threading.Thread(target=processor._warmup_all_models, daemon=True)
+    thread.start()
+    print("🚀 LecGen AI started — model pre-warming running in background...")
+
+
+# Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "https://lec-gen-ai-96pc.vercel.app",
-        "https://ofe7hp-ip-103-106-200-60.tunnelmole.net",
-        "https://fb19a7d08da3af.lhr.life"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -321,18 +324,6 @@ async def download_history_result(task_id: str):
         filename=f"{safe_title}.json"
     )
 
-@app.get("/history", tags=["History Management"])
-async def get_all_history():
-    """Retrieve a list of all successfully completed analysis tasks."""
-    # Return sorted history (newest first)
-    history_list = []
-    for tid, data in tasks.items():
-        if data.get("status") == "completed":
-            history_list.append({"id": tid, **data})
-    
-    # Sort by date
-    history_list.sort(key=lambda x: x.get("date", ""), reverse=True)
-    return history_list
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 SILENT_COMPRESS_SIZE = 5 * 1024 * 1024 # 5MB
@@ -442,7 +433,7 @@ async def process_file(
         "title": file.filename,
         "user_email": current_user
     }
-    background_tasks.add_task(run_processing_task, task_id, "file", file_path)
+    background_tasks.add_task(run_processing_task, task_id, "upload", file_path)
     return {"task_id": task_id}
 
 @app.post("/process/text", tags=["Processing"])

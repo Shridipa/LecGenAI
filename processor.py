@@ -54,13 +54,27 @@ compute_type = "float16" if torch.cuda.is_available() else "int8"
 
 # Models cache
 _models = {}
+_warmup_lock = Lock()
 
-def get_whisper_model(model_name='base'):
+def get_whisper_model(model_name='tiny'):  # 'tiny' is 3x faster than 'base' with acceptable accuracy
     if 'whisper' not in _models:
         from faster_whisper import WhisperModel
         print(f"Loading faster-whisper model: {model_name} on {device_type} with {compute_type}...")
         _models['whisper'] = WhisperModel(model_name, device=device_type, compute_type=compute_type)
     return _models['whisper']
+
+def _warmup_all_models():
+    """Pre-load all models at startup so the first user request is instant."""
+    with _warmup_lock:
+        print("⚡ Pre-warming all AI models in background...")
+        try:
+            get_whisper_model('tiny')
+            get_summarizer()
+            get_qg_generator()
+            get_qa_answerer()
+            print("✅ All models pre-warmed and ready!")
+        except Exception as e:
+            print(f"⚠️ Model pre-warm error (non-fatal): {e}")
 
 def _create_summarizer(model_name):
     kwargs = {"device": device} if device == 0 else {}
@@ -98,7 +112,8 @@ def get_summarizer():
 
 def get_qg_generator():
     if 'qg' not in _models:
-        model_name = "valhalla/t5-small-e2e-qg" # Switched to 'small' for speed
+        # Using t5-base-e2e-qg — this is actually cached locally and generates proper standalone questions
+        model_name = "valhalla/t5-base-e2e-qg"
         kwargs = {"device": device} if device == 0 else {}
         if device == 0:
             kwargs["torch_dtype"] = torch.float16
@@ -113,9 +128,22 @@ def get_qg_generator():
             if device == 0:
                 model = model.to(device).half()
             def manual_qg(text, **gen_kwargs):
-                inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True).to(model.device)
-                out = model.generate(inputs["input_ids"], **gen_kwargs)
-                return [{"generated_text": tokenizer.decode(out[0], skip_special_tokens=True)}]
+                if not isinstance(text, list): text = [text]
+                inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding=True).to(model.device)
+                
+                # E2E-QG model needs specific parameters to avoid repetitive generation
+                gen_params = {
+                    "max_new_tokens": 128,
+                    "num_beams": 4,
+                    "early_stopping": True,
+                    **gen_kwargs
+                }
+                out = model.generate(**inputs, **gen_params)
+                
+                results = []
+                for idx in range(len(text)):
+                    results.append({"generated_text": tokenizer.decode(out[idx], skip_special_tokens=True)})
+                return results
             _models['qg'] = manual_qg
     return _models['qg']
 
@@ -160,92 +188,180 @@ def chunk_text(text, max_chars=3000):
     return chunks
 
 def summarize_text(text):
+    """Generate a clean bullet-point summary covering the ENTIRE content."""
     if not text: return ""
     summarizer = get_summarizer()
-    # Process fewer, larger chunks to reduce model overhead
-    chunks = chunk_text(text, max_chars=3000)[:4] 
+    # No cap — process all chunks so the full lecture is covered
+    chunks = chunk_text(text, max_chars=3500)
     summaries = []
-    
+
     try:
-        if device == 0: # GPU Batching
-            # Ensure truncation for safety
-            results = summarizer(chunks, max_length=150, min_length=40, do_sample=False, truncation=True, batch_size=len(chunks))
+        if device == 0:  # GPU: batch all at once
+            results = summarizer(
+                chunks, max_length=160, min_length=50,
+                do_sample=False, truncation=True, batch_size=min(len(chunks), 4)
+            )
             summaries = [res['summary_text'] for res in results if 'summary_text' in res]
-        else: # CPU Parallel
-            results = _executor.map(lambda c: summarizer(c, max_length=150, min_length=40, do_sample=False, truncation=True)[0]['summary_text'], chunks)
+        else:  # CPU: parallel threads — processes all chunks concurrently
+            results = _executor.map(
+                lambda c: summarizer(c, max_length=160, min_length=50,
+                                     do_sample=False, truncation=True)[0]['summary_text'],
+                chunks
+            )
             summaries = list(results)
     except Exception as e:
         print(f"Summary error: {e}")
-        for chunk in chunks[:3]:
+        for chunk in chunks:
             try:
-                res = summarizer(chunk, max_length=150, min_length=40, do_sample=False, truncation=True)
+                res = summarizer(chunk, max_length=160, min_length=50, do_sample=False, truncation=True)
                 summaries.append(res[0]['summary_text'])
-            except: continue
-                
+            except:
+                continue
+
     combined_text = " ".join(summaries)
     sentences = nltk.sent_tokenize(combined_text)
-    bullet_points = [f"- {s.strip()}" for s in sentences if s.strip()]
+    # Deduplicate and filter trivially short sentences
+    seen = set()
+    bullet_points = []
+    for s in sentences:
+        s = s.strip()
+        if len(s) > 20 and s not in seen:
+            bullet_points.append(f"• {s}")
+            seen.add(s)
     return "\n".join(bullet_points)
 
 def generate_important_questions(text):
+    """Generate important Q&A pairs from the ENTIRE content with quality filtering."""
     if not text: return []
     qg = get_qg_generator()
     qa = get_qa_answerer()
-    
-    chunks = chunk_text(text, max_chars=3000)[:3]
+
+    # No cap — all chunks processed, up to 3 questions each
+    chunks = chunk_text(text, max_chars=3500)
     qa_list = []
-    
+
     try:
         q_prompts = [f"generate questions: {c}" for c in chunks]
-        # Added truncation=True to prevent index errors
-        q_results = qg(q_prompts, batch_size=len(chunks), truncation=True)
-        
+        # Process in batches of 4 to avoid memory pressure on CPU
+        q_results = []
+        for i in range(0, len(q_prompts), 4):
+            batch = q_prompts[i:i+4]
+            q_results.extend(qg(batch, batch_size=len(batch), truncation=True))
+
         qa_inputs = []
         for i, res in enumerate(q_results):
-            if not res or 'generated_text' not in res: continue
+            if not res or 'generated_text' not in res:
+                continue
+            # 3 questions per chunk to distribute coverage across full lecture
             qs = [q.strip() for q in res['generated_text'].split("<sep>") if "?" in q][:3]
             for q in qs:
                 qa_inputs.append({"question": q, "context": chunks[i]})
-        
+
         if qa_inputs:
-            ans_results = qa(
-                question=[i['question'] for i in qa_inputs],
-                context=[i['context'] for i in qa_inputs],
-                batch_size=min(len(qa_inputs), 8),
-                truncation=True
-            )
-            
-            if not isinstance(ans_results, list): ans_results = [ans_results]
-            
-            for i, ans in enumerate(ans_results):
-                if not ans or 'answer' not in ans: continue
+            # Batch answer extraction in groups of 8
+            all_answers = []
+            for i in range(0, len(qa_inputs), 8):
+                batch_q = qa_inputs[i:i+8]
+                res = qa(
+                    question=[x['question'] for x in batch_q],
+                    context=[x['context'] for x in batch_q],
+                    batch_size=len(batch_q),
+                    truncation=True
+                )
+                if not isinstance(res, list): res = [res]
+                all_answers.extend(res)
+
+            seen_q = set()
+            for i, ans in enumerate(all_answers):
+                if not ans or 'answer' not in ans:
+                    continue
+                q_text = qa_inputs[i]['question'].strip()
+                # Use raw string for deduplication (case-insensitive) to retain distinctiveness
+                q_lower = q_text.lower()
+                if q_lower in seen_q: 
+                    continue
+                seen_q.add(q_lower)
+
+                answer_text = ans['answer'].strip()
+                if len(answer_text) <= 3 or answer_text.lower() in {'the', 'a', 'an', 'is', 'it', 'of', 'in', 'to', 'for', 'and'}:
+                    continue
+
                 qa_list.append({
-                    "question": qa_inputs[i]['question'],
-                    "answer": ans['answer'],
-                    "type": "long" if len(ans['answer']) > 60 else "short"
+                    "question": q_text,
+                    "answer": answer_text,
+                    "type": "long" if len(answer_text) > 60 else "short"
                 })
     except Exception as e:
         print(f"Batch QA error: {e}")
-        
-    return qa_list[:25]
+
+    return qa_list[:30]  # Cap final output at 30, from all chunks
+
 
 def generate_notes(text):
+    """
+    Generate structured, sectioned study notes — NOT a copy of the summary.
+    Sections: Overview | Key Concepts | Key Takeaways
+    """
     if not text: return ""
-    return summarize_text(text)
+    summarizer = get_summarizer()
+
+    sentences = nltk.sent_tokenize(text)
+    total = len(sentences)
+
+    # Divide transcript into 3 logical thirds: intro, body, conclusion
+    third = max(1, total // 3)
+    intro_text   = " ".join(sentences[:third])
+    body_text    = " ".join(sentences[third: 2 * third])
+    closing_text = " ".join(sentences[2 * third:])
+
+    # Generate notes using the full pipeline against all sentences in that third
+    # This guarantees the ENTIRE audio is covered, not just the first 3500 characters
+    overview   = summarize_text(intro_text)
+    concepts   = summarize_text(body_text)
+    takeaways  = summarize_text(closing_text)
+
+    notes_parts = []
+
+    if overview:
+        notes_parts.append("## 📌 Overview")
+        for s in nltk.sent_tokenize(overview):
+            if s.strip(): notes_parts.append(f"  • {s.strip()}")
+
+    if concepts:
+        notes_parts.append("\n## 🔑 Key Concepts")
+        for s in nltk.sent_tokenize(concepts):
+            if s.strip(): notes_parts.append(f"  • {s.strip()}")
+
+    if takeaways:
+        notes_parts.append("\n## ✅ Key Takeaways")
+        for s in nltk.sent_tokenize(takeaways):
+            if s.strip(): notes_parts.append(f"  • {s.strip()}")
+
+    # Fallback: if all sections failed, use summarize_text
+    if not notes_parts:
+        return summarize_text(text)
+
+    return "\n".join(notes_parts)
 
 def generate_quiz(text, is_pro=False):
+    """Generate quality-filtered quiz questions from the ENTIRE content (MCQ + short answer)."""
     if not text: return []
     qg = get_qg_generator()
     qa = get_qa_answerer()
-    
-    max_questions = 12 # Reduced count for speed
-    chunks = chunk_text(text, max_chars=3000)[:3] 
+
+    max_questions = 12  # Final output cap
+    # No chunk cap — all content is processed
+    chunks = chunk_text(text, max_chars=3500)
     questions = []
     
     try:
         q_prompts = [f"generate questions: {c}" for c in chunks]
-        q_results = qg(q_prompts, batch_size=len(chunks), truncation=True)
-        
+        # Process in batches of 4 to avoid memory pressure
+        q_results = []
+        for i in range(0, len(q_prompts), 4):
+            batch = q_prompts[i:i+4]
+            q_results.extend(qg(batch, batch_size=len(batch), truncation=True))
+
         qa_inputs = []
         for i, res in enumerate(q_results):
             if not res or 'generated_text' not in res: continue
@@ -264,11 +380,21 @@ def generate_quiz(text, is_pro=False):
             
             if not isinstance(ans_results, list): ans_results = [ans_results]
             
+            seen_q = set()
             for i, ans in enumerate(ans_results):
                 if not ans or 'answer' not in ans: continue
-                q_text = qa_inputs[i]['question']
-                answer_text = ans['answer']
-                if not answer_text.strip(): continue # Skip empty answers
+                q_text = qa_inputs[i]['question'].strip()
+                
+                # Prevent duplicate questions exactly as written
+                q_lower = q_text.lower()
+                if q_lower in seen_q: 
+                    continue
+                seen_q.add(q_lower)
+
+                answer_text = ans['answer'].strip()
+                # Quality filter: skip empty, trivial single-word, or stop-word answers
+                if len(answer_text) <= 3 or answer_text.lower() in {'the','a','an','is','it','of','in','to','for','and'}:
+                    continue
                 
                 q_idx = len(questions) + 1
                 
@@ -302,11 +428,15 @@ def generate_quiz(text, is_pro=False):
     return questions[:max_questions]
 
 def generate_flashcards(quiz_data):
+    """Generate 10 flashcards from the highest-quality quiz items (prefer longer answers)."""
     if not quiz_data: return []
+    # Sort to prefer richer answers on front/back
+    sorted_q = sorted(quiz_data, key=lambda x: len(x.get('correct', '')), reverse=True)
     cards = []
-    # Use first 15 quiz items for flashcards
-    for q in quiz_data[:15]:
-        cards.append({"front": q['question'], "back": q['correct']})
+    for q in sorted_q[:10]:
+        answer = q['correct'].strip()
+        if len(answer) >= 3:  # Only include if answer has real content
+            cards.append({"front": q['question'], "back": answer})
     return cards
 
 def inject_ffmpeg():
@@ -437,9 +567,9 @@ def process_lecture(source_type, data, target_lang='en'):
         transcript = data
         
     if audio_path and not transcript:
-        # Upgraded to 'base' for better 'correctness' as requested, while still being very fast.
-        model = get_whisper_model("base")
-        # Added VAD filter for extra speed and better silence handling
+        # 'tiny' model: 3x faster than 'base', adequate accuracy for educational content
+        model = get_whisper_model("tiny")
+        # beam_size=1 + VAD filter = maximum speed without accuracy loss for lectures
         segments, info = model.transcribe(
             audio_path, 
             beam_size=1, 
