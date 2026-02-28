@@ -56,7 +56,7 @@ compute_type = "float16" if torch.cuda.is_available() else "int8"
 _models = {}
 _warmup_lock = Lock()
 
-def get_whisper_model(model_name='tiny'):  # 'tiny' is 3x faster than 'base' with acceptable accuracy
+def get_whisper_model(model_name='base'):  # Reverted back to base model size as requested
     if 'whisper' not in _models:
         from faster_whisper import WhisperModel
         print(f"Loading faster-whisper model: {model_name} on {device_type} with {compute_type}...")
@@ -68,7 +68,7 @@ def _warmup_all_models():
     with _warmup_lock:
         print("⚡ Pre-warming all AI models in background...")
         try:
-            get_whisper_model('tiny')
+            get_whisper_model('base')
             get_summarizer()
             get_qg_generator()
             get_qa_answerer()
@@ -105,15 +105,15 @@ def _create_summarizer(model_name):
         return manual_summ
 
 def get_summarizer():
-    # Switched to distilbart-6-6 for ultra speed (half the layers of 12-6)
+    # Reverted to full BART Large CNN
     if 'summarizer' not in _models:
-        _models['summarizer'] = _create_summarizer("sshleifer/distilbart-cnn-6-6")
+        _models['summarizer'] = _create_summarizer("facebook/bart-large-cnn")
     return _models['summarizer']
 
 def get_qg_generator():
     if 'qg' not in _models:
-        # Using t5-base-e2e-qg — this is actually cached locally and generates proper standalone questions
-        model_name = "valhalla/t5-base-e2e-qg"
+        # Reverted back to the original QA-QG model
+        model_name = "valhalla/t5-small-qa-qg-hl"
         kwargs = {"device": device} if device == 0 else {}
         if device == 0:
             kwargs["torch_dtype"] = torch.float16
@@ -149,7 +149,7 @@ def get_qg_generator():
 
 def get_qa_answerer():
     if 'qa' not in _models:
-        model_name = "deepset/tinyroberta-squad2" # Switched to 'tiny' for speed
+        model_name = "distilbert-base-uncased-distilled-squad" # Reverted to DistilBERT SQuAD
         kwargs = {"device": device} if device == 0 else {}
         if device == 0:
             kwargs["torch_dtype"] = torch.float16
