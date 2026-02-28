@@ -92,7 +92,7 @@ compute_type = "float16" if torch.cuda.is_available() else "int8"
 _models = {}
 _warmup_lock = Lock()
 
-def get_whisper_model(model_name='large-v2'):  # Upgraded to large-v2 for best accuracy
+def get_whisper_model(model_name='large-v3'):  # Upgraded to large-v3 as per Pipeline Prompt
     if 'whisper' not in _models:
         from faster_whisper import WhisperModel
         print(f"Loading faster-whisper model: {model_name} on {device_type} with {compute_type}...")
@@ -104,7 +104,7 @@ def _warmup_all_models():
     with _warmup_lock:
         print("⚡ Pre-warming all AI models in background...")
         try:
-            get_whisper_model('large-v2')
+            get_whisper_model('large-v3')
             get_summarizer()
             get_qg_generator()
             get_qa_answerer()
@@ -141,9 +141,9 @@ def _create_summarizer(model_name):
         return manual_summ
 
 def get_summarizer():
-    # facebook/bart-large-cnn — best fit for extractive lecture summarization
+    # google/long-t5-tglobal-base — Best for long form academic lectures
     if 'summarizer' not in _models:
-        _models['summarizer'] = _create_summarizer("facebook/bart-large-cnn")
+        _models['summarizer'] = _create_summarizer("google/long-t5-tglobal-base")
     return _models['summarizer']
 
 def get_qg_generator():
@@ -480,8 +480,8 @@ def process_lecture(source_type, data, target_lang='en'):
         transcript = data
         
     if audio_path and not transcript:
-        # Use large-v2 for best accuracy on academic lectures
-        model = get_whisper_model("large-v2")
+        # Use large-v3 for maximum accuracy as requested
+        model = get_whisper_model("large-v3")
         segments, info = model.transcribe(
             audio_path, 
             beam_size=5, 
