@@ -17,31 +17,46 @@ LecGen AI is a powerful tool designed to transform lecture recordings (YouTube l
 - **Quiz Generation:** AI-generated questions and answers to test your knowledge.
 - **Flashcards:** Interactive flashcards for active recall.
 
-## Setup
+## 🚀 Getting Started
 
-1.  **Clone the repository:**
+### Prerequisites
 
-    ```bash
-    git clone <repository-url>
-    cd LecGenAICTE
-    ```
+- **Python 3.10+**
+- **Node.js & npm**
+- **FFmpeg:** Required for audio processing. Download it from [ffmpeg.org](https://ffmpeg.org/) and add it to your system PATH.
 
-2.  **Create and activate a virtual environment:**
+### Installation & Setup
 
-    ```bash
-    python -m venv venv
-    .\venv\Scripts\activate  # Windows
-    source venv/bin/activate  # Linux/Mac
-    ```
+1. **Clone the Repository:**
 
-3.  **Install dependencies:**
+   ```bash
+   git clone https://github.com/shridipa-codes/LecGenAICTE.git
+   cd LecGenAICTE
+   ```
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+2. **Backend Environment Setup:**
+   Create a virtual environment and install the required dependencies:
 
-4.  **Install FFmpeg:**
-    FFmpeg is required for audio processing. Download it from [ffmpeg.org](https://ffmpeg.org/) and add it to your system PATH.
+   ```bash
+   python -m venv venv
+
+   # Windows:
+   .\venv\Scripts\activate
+
+   # Linux/Mac:
+   source venv/bin/activate
+
+   # Install Python packages:
+   pip install -r requirements.txt
+   ```
+
+3. **Frontend Setup:**
+   Navigate to the frontend directory and install dependencies:
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
 
 ## Running the App
 

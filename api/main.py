@@ -154,6 +154,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
         "https://lec-gen-ai-96pc.vercel.app",
         "https://ofe7hp-ip-103-106-200-60.tunnelmole.net",
         "https://fb19a7d08da3af.lhr.life"
@@ -163,8 +165,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Task storage
 tasks: Dict[str, dict] = {}
