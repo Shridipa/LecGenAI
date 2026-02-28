@@ -1,0 +1,21 @@
+2026-02-28T05:48:00Z INF Thank you for trying Cloudflare Tunnel. Doing so, without a Cloudflare account, is a quick way to experiment and try it out. However, be aware that these account-less Tunnels have no uptime guarantee, are subject to the Cloudflare Online Services Terms of Use (https://www.cloudflare.com/website-terms/), and Cloudflare reserves the right to investigate your use of Tunnels for violations of such terms. If you intend to use Tunnels in production you should use a pre-created named tunnel by following: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps
+2026-02-28T05:48:00Z INF Requesting new quick Tunnel on trycloudflare.com...
+2026-02-28T05:48:05Z INF +--------------------------------------------------------------------------------------------+
+2026-02-28T05:48:05Z INF |  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):  |
+2026-02-28T05:48:05Z INF |  https://commons-physicians-referred-gordon.trycloudflare.com                              |
+2026-02-28T05:48:05Z INF +--------------------------------------------------------------------------------------------+
+2026-02-28T05:48:05Z INF Cannot determine default configuration path. No file [config.yml config.yaml] in [~/.cloudflared ~/.cloudflare-warp ~/cloudflare-warp]
+2026-02-28T05:48:05Z INF Version 2026.2.0 (Checksum b3279f2186a1c3c438ad5865e802bbbec26090c5d3fdb4ac1113f1143a94837a)
+2026-02-28T05:48:05Z INF GOOS: windows, GOVersion: go1.24.13, GoArch: amd64
+2026-02-28T05:48:05Z INF Settings: map[ha-connections:1 p:http2 protocol:http2 url:http://localhost:8000]
+2026-02-28T05:48:05Z INF cloudflared will not automatically update on Windows systems.
+2026-02-28T05:48:05Z INF Generated Connector ID: 3e5fc0cf-de36-45f4-95b5-bfe5bf56bc3a
+2026-02-28T05:48:05Z INF Initial protocol http2
+2026-02-28T05:48:05Z INF ICMP proxy will use 10.6.187.51 as source for IPv4
+2026-02-28T05:48:06Z INF ICMP proxy will use fe80::4f05:f48a:507a:55a4 in zone Wi-Fi as source for IPv6
+2026-02-28T05:48:06Z INF cloudflared does not support loading the system root certificate pool on Windows. Please use --origin-ca-pool <PATH> to specify the path to the certificate pool
+2026-02-28T05:48:06Z INF ICMP proxy will use 10.6.187.51 as source for IPv4
+2026-02-28T05:48:06Z INF ICMP proxy will use fe80::4f05:f48a:507a:55a4 in zone Wi-Fi as source for IPv6
+2026-02-28T05:48:06Z INF Starting metrics server on 127.0.0.1:20244/metrics
+2026-02-28T05:48:06Z INF Registered tunnel connection connIndex=0 connection=012bbd74-b1b4-4c6d-92be-08f08c8ab35d event=0 ip=198.41.200.113 location=bom11 protocol=http2
+2026-02-28T05:48:11Z ERR Failed to initialize DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"

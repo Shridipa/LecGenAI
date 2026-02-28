@@ -1,15 +1,18 @@
-from fastapi.middleware.cors import CORSMiddleware
+import sys
 import os
-# Triggering reload for deep-translator
+from datetime import datetime
+from typing import Optional, Dict, List, Any
+
+# Add project root and local api folder to path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from fastapi.middleware.cors import CORSMiddleware
 import uuid
 import shutil
 import json
 import processor
-
-from datetime import datetime
-from typing import Optional, Dict
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 from pyq_analyzer import PYQAnalyzer
 
 from fastapi.staticfiles import StaticFiles
