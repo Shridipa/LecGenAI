@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Brain } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { translations } from '../translations';
 import { useAuth } from '../context/AuthContext';
@@ -45,7 +45,7 @@ const Navbar = () => {
             >
               {link.label}
               {location.pathname === link.path && (
-                <motion.div
+                <Motion.div
                   layoutId="activeNav"
                   className="absolute -bottom-1 left-0 right-0 h-0.5 bg-primary"
                 />

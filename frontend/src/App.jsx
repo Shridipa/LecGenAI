@@ -7,8 +7,8 @@ import Settings from './pages/Settings';
 import PYQAnalytics from './pages/PYQAnalytics';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import { SettingsProvider } from './context/SettingsContext';
-import { AuthProvider } from './context/AuthContext';
+import { SettingsProvider } from './context/SettingsProvider';
+import { AuthProvider } from './context/AuthProvider';
 import './index.css';
 
 const App = () => {

@@ -1,8 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-const SettingsContext = createContext();
-
-export const useSettings = () => useContext(SettingsContext);
+import React, { useState, useEffect } from 'react';
+import { SettingsContext } from './SettingsContext';
 
 export const SettingsProvider = ({ children }) => {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');

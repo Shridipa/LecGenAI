@@ -1,6 +1,6 @@
 import React from 'react';
 import { Moon, Sun, Globe } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { translations } from '../translations';
 import Navbar from '../components/Navbar';
@@ -65,7 +65,7 @@ const Settings = () => {
 
         <div className="space-y-6">
           {settingsSections.map((section, index) => (
-            <motion.div
+            <Motion.div
               key={section.title}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -116,27 +116,13 @@ const Settings = () => {
                       </select>
                     )}
 
-                    {item.type === 'checkbox' && (
-                      <button
-                        onClick={item.onChange}
-                        className={`w-12 h-6 rounded-full transition-all relative ${
-                          item.checked ? 'bg-primary' : 'bg-white/10'
-                        }`}
-                      >
-                        <motion.div
-                          animate={{ x: item.checked ? 24 : 2 }}
-                          className="absolute w-5 h-5 bg-white rounded-full top-0.5 shadow-sm"
-                        />
-                      </button>
-                    )}
-
                     {item.type === 'display' && (
                       <span className="text-sm font-bold text-primary">{item.value}</span>
                     )}
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </Motion.div>
           ))}
         </div>
       </main>

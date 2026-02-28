@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -40,7 +40,7 @@ const Login = () => {
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-6 py-20 relative z-10 flex items-center justify-center">
-        <motion.div 
+        <Motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="glass p-8 md:p-12 rounded-[32px] border-white/10 w-full max-w-md shadow-2xl shadow-primary/10"
@@ -112,7 +112,7 @@ const Login = () => {
               Don't have an account? <Link to="/signup" className="text-primary hover:text-primary-light transition-colors font-bold">Sign Up Free</Link>
             </p>
           </footer>
-        </motion.div>
+        </Motion.div>
       </main>
 
       <Footer />

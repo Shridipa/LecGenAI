@@ -11,7 +11,7 @@ import {
   Clock, 
   FileText 
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
@@ -26,7 +26,7 @@ const History = () => {
   const [historyData, setHistoryData] = useState([]);
   const [loading, setLoading] = useState(true);
   const { language } = useSettings();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const t = translations[language];
   const navigate = useNavigate();
 
@@ -159,7 +159,7 @@ const History = () => {
                   ))
                 ) : (
                   filteredHistory.map((item, index) => (
-                    <motion.div
+                    <Motion.div
                       key={item.id}
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -207,7 +207,7 @@ const History = () => {
                       >
                         View Result <ExternalLink size={14} />
                       </button>
-                    </motion.div>
+                    </Motion.div>
                   ))
                 )}
               </AnimatePresence>

@@ -13,7 +13,7 @@ import {
   Library,
   Target
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { API_BASE_URL } from '../config';
@@ -68,13 +68,13 @@ const PYQAnalytics = () => {
 
       <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
         <div className="text-center mb-16">
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest mb-6"
           >
             <Library size={14} /> Exam Intelligence
-          </motion.div>
+          </Motion.div>
           <h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-tight text-main">
             PYQ <span className="text-gradient">Deep Analysis</span>
           </h1>
@@ -132,13 +132,13 @@ const PYQAnalytics = () => {
             </div>
 
             {error && (
-              <motion.div 
+              <Motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-6 p-4 bg-error/10 border border-error/20 rounded-xl text-error text-sm font-bold flex items-center gap-3 justify-center"
               >
                 <AlertCircle size={16} /> {error}
-              </motion.div>
+              </Motion.div>
             )}
 
             <button
@@ -160,7 +160,7 @@ const PYQAnalytics = () => {
         </div>
 
         {result && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-12"
@@ -378,7 +378,7 @@ const PYQAnalytics = () => {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </Motion.div>
         )}
       </main>
 

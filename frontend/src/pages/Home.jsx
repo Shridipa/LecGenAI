@@ -15,7 +15,7 @@ import {
   ArrowRight,
   Layout
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { translations } from '../translations';
 import Navbar from '../components/Navbar';
@@ -111,7 +111,7 @@ const Home = () => {
           <>
             {/* Hero Section */}
             <section className="text-center mb-16 mt-8">
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="max-w-2xl mx-auto"
@@ -134,13 +134,13 @@ const Home = () => {
                 >
                   {t.generateNow}
                 </button>
-              </motion.div>
+              </Motion.div>
             </section>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start" id="studio-input">
               {/* Left: Input Controller */}
               <div className="lg:col-span-5 flex flex-col gap-6">
-                <motion.section 
+                <Motion.section 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
@@ -183,7 +183,7 @@ const Home = () => {
                   {/* Step 2: Content Input */}
                   <div className="space-y-6">
                     <AnimatePresence mode="wait">
-                      <motion.div
+                      <Motion.div
                         key={inputType}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -238,7 +238,7 @@ const Home = () => {
                             )}
                           </div>
                         )}
-                      </motion.div>
+                      </Motion.div>
                     </AnimatePresence>
 
                     <button 
@@ -257,13 +257,13 @@ const Home = () => {
                       </div>
                     )}
                   </div>
-                </motion.section>
+                </Motion.section>
               </div>
 
               {/* Right: Vision Dashboard */}
               <div className="lg:col-span-7">
                 <div className="flex flex-col gap-6 h-full">
-                  <motion.div 
+                  <Motion.div 
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="glass p-8 rounded-3xl border-white/5 relative overflow-hidden h-full flex flex-col justify-center"
@@ -291,7 +291,7 @@ const Home = () => {
                         ))}
                       </div>
                     </div>
-                  </motion.div>
+                  </Motion.div>
                 </div>
               </div>
             </div>

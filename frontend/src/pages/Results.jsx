@@ -18,7 +18,7 @@ import {
   ChevronRight,
   RotateCcw
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { translations } from '../translations';
 import Navbar from '../components/Navbar';
@@ -167,7 +167,7 @@ const Results = () => {
                 <tab.icon size={14} />
                 {tab.label}
                 {activeTab === tab.id && (
-                  <motion.div layoutId="activeResultTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                  <Motion.div layoutId="activeResultTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                 )}
               </button>
             ))}
@@ -176,7 +176,7 @@ const Results = () => {
           {/* Content */}
           <div className="flex-1 p-8 md:p-12 overflow-y-auto custom-scroll" ref={resultRef}>
             <AnimatePresence mode="wait">
-              <motion.div
+              <Motion.div
                 key={activeTab}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -281,7 +281,7 @@ const Results = () => {
                      ))}
                   </div>
                 )}
-              </motion.div>
+              </Motion.div>
             </AnimatePresence>
           </div>
         </div>
@@ -336,7 +336,7 @@ const QuizEngine = ({ questions }) => {
   if (isFinished) {
     const { correctCount, total, percentage } = calculateScore();
     return (
-      <motion.div 
+      <Motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="max-w-2xl mx-auto text-center py-12"
@@ -374,7 +374,7 @@ const QuizEngine = ({ questions }) => {
         >
           <RotateCcw size={16} /> Retake Examination
         </button>
-      </motion.div>
+      </Motion.div>
     );
   }
 
@@ -398,7 +398,7 @@ const QuizEngine = ({ questions }) => {
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div
+        <Motion.div
           key={currentIdx}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -477,7 +477,7 @@ const QuizEngine = ({ questions }) => {
               )}
 
               {showExplanation && (
-                <motion.div 
+                <Motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="mt-10 p-6 rounded-2xl bg-white/[0.03] border border-white/5"
@@ -486,7 +486,7 @@ const QuizEngine = ({ questions }) => {
                   <p className="text-xs text-muted leading-relaxed font-bold">
                     {q.explanation}
                   </p>
-                </motion.div>
+                </Motion.div>
               )}
             </div>
           </div>
@@ -505,7 +505,7 @@ const QuizEngine = ({ questions }) => {
               <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
-        </motion.div>
+        </Motion.div>
       </AnimatePresence>
     </div>
   );
