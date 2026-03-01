@@ -1,4 +1,5 @@
 import os
+os.environ["HF_HUB_DISABLE_SYMLINKS"] = "1" # Fix for Windows WinError 1314
 import subprocess
 import uuid
 import torch
@@ -19,50 +20,7 @@ _executor = ThreadPoolExecutor(max_workers=3 if torch.cuda.is_available() else 2
 
 def translate_text(text, target_lang):
     if not text or target_lang == 'en': return text
-    
-    # Upgraded to NLLB-200 for high-fidelity academic translation
-    NLLB_LANG_MAP = {
-        'es': 'spa_Latn', 'fr': 'fra_Latn', 'de': 'deu_Latn',
-        'hi': 'hin_Deva', 'zh': 'zho_Hans', 'ar': 'arb_Arab',
-        'pt': 'por_Latn', 'ru': 'rus_Cyrl', 'ja': 'jpn_Jpan',
-        'ko': 'kor_Hang', 'it': 'ita_Latn', 'bn': 'ben_Beng',
-    }
-    nllb_target = NLLB_LANG_MAP.get(target_lang)
-    
-    if nllb_target:
-        try:
-            from transformers import pipeline as hf_pipeline
-            if 'translator' not in _models:
-                print("Loading NLLB-200 translation model...")
-                _models['translator'] = hf_pipeline(
-                    "translation",
-                    model="facebook/nllb-200-distilled-600M",
-                    src_lang="eng_Latn",
-                    tgt_lang=nllb_target,
-                    device=device
-                )
-            else:
-                # Update target lang on existing pipeline
-                _models['translator'].tokenizer.src_lang = "eng_Latn"
-                _models['translator'].task_specific_params = {"translation": {"tgt_lang": nllb_target}}
-            
-            # Batch translation is significantly faster than one-by-one
-            if isinstance(text, list):
-                results = _models['translator'](text, tgt_lang=nllb_target, max_length=512)
-                return [r['translation_text'] for r in results]
-                
-            # Chunk long texts to avoid token limit
-            if len(text) > 1000:
-                chunks = chunk_text(text, max_chars=800)
-                results = _models['translator'](chunks, tgt_lang=nllb_target, max_length=512)
-                return " ".join([r['translation_text'] for r in results])
-            
-            result = _models['translator'](text, tgt_lang=nllb_target, max_length=512)
-            return result[0]['translation_text']
-        except Exception as e:
-            print(f"NLLB translation error: {e}, falling back to Google Translate")
-    
-    # Fallback to cloud Google Translate for unsupported or on error
+    # Reverting to Cloud Google Translate for INSTANT sub-second results
     try:
         from deep_translator import GoogleTranslator
         translator = GoogleTranslator(source='auto', target=target_lang)
@@ -95,11 +53,10 @@ compute_type = "float16" if torch.cuda.is_available() else "int8"
 _models = {}
 _warmup_lock = Lock()
 
-def get_whisper_model(model_name='distil-large-v3'):  # Neural Lite: 6x faster than large-v3
+def get_whisper_model(model_name='base.en'):  # Turbo: 15x real-time speed
     if 'whisper' not in _models:
         from faster_whisper import WhisperModel
-        print(f"Loading faster-distil-whisper: {model_name}...")
-        # Use float16 even on CPU for a massive speed boost if supported, else int8
+        print(f"Loading Super-Turbo Whisper: {model_name}...")
         _models['whisper'] = WhisperModel(model_name, device=device_type, compute_type=compute_type)
     return _models['whisper']
 
@@ -108,11 +65,11 @@ def _warmup_all_models():
     with _warmup_lock:
         print("⚡ Pre-warming Neural Lite models...")
         try:
-            get_whisper_model('distil-large-v3')
+            get_whisper_model('base.en')
             get_summarizer()
             get_qg_generator()
             get_qa_answerer()
-            print("✅ Optimized models ready!")
+            print("⚡ Turbo Pipeline Warm!")
         except Exception as e:
             print(f"⚠️ Pre-warm error: {e}")
 
@@ -145,17 +102,17 @@ def _create_summarizer(model_name):
         return manual_summ
 
 def get_summarizer():
-    # sshleifer/distilbart-cnn-12-6 — Much faster than BART-Large with 95% same quality
+    # sshleifer/distilbart-cnn-6-6 — Turbo speed (half the layers of 12-6)
     if 'summarizer' not in _models:
-        print("📥 Initializing Summarization Engine (DistilBART)...")
-        _models['summarizer'] = _create_summarizer("sshleifer/distilbart-cnn-12-6")
+        print("📥 Initializing Summarizer (Turbo Mode)...")
+        _models['summarizer'] = _create_summarizer("sshleifer/distilbart-cnn-6-6")
     return _models['summarizer']
 
 def get_qg_generator():
     if 'qg' not in _models:
-        print("📥 Initializing Logic Generator (Flan-T5-Base)...")
-        # Base version is 3x faster than Large and still very capable for QG
-        model_name = "google/flan-t5-base"
+        print("📥 Initializing Question Gen (Turbo Mode)...")
+        # Small version (80M params) — 4-5x faster than Base
+        model_name = "google/flan-t5-small"
         kwargs = {"device": device} if device == 0 else {"low_cpu_mem_usage": True}
         if device == 0:
             kwargs["torch_dtype"] = torch.float16
@@ -515,16 +472,15 @@ def process_lecture(source_type, data, target_lang='en'):
         transcript = data
         
     if audio_path and not transcript:
-        # Neural Lite: distil-large-v3
-        model = get_whisper_model("distil-large-v3")
-        # beam_size=1 is roughly 5x faster than beam_size=5 with negligible accuracy drop for high-quality audio
+        # Super-Turbo: base.en
+        model = get_whisper_model("base.en")
+        # beam_size=1 + int8 quantization = Maximum CPU throughput
         segments, info = model.transcribe(
             audio_path, 
             beam_size=1, 
             temperature=0, 
             vad_filter=True, 
-            task="transcribe",
-            initial_prompt="Educational lecture with clear terminology and technical jargon."
+            task="transcribe"
         )
         transcript = "".join([segment.text for segment in segments])
         
