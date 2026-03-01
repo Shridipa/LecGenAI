@@ -1,5 +1,7 @@
 import os
-os.environ["HF_HUB_DISABLE_SYMLINKS"] = "1" # Fix for Windows WinError 1314
+os.environ["HF_HUB_DISABLE_SYMLINKS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "8" # Match physical cores to avoid context-switching/thrashing
+os.environ["MKL_NUM_THREADS"] = "8"
 import subprocess
 import uuid
 import torch
@@ -10,13 +12,15 @@ from pydub import AudioSegment
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 
-# Performance Tuning: Max out for 16-core CPU environment
-torch.set_num_threads(16) 
+# Performance Tuning: Target 8 physical cores (standard for 16-thread CPUs)
+# Setting this too high (e.g. 16) causes thread contention and SLOWDOWN.
+torch.set_num_threads(8) 
 torch.set_grad_enabled(False)
 
 
-# Ultra-optimized worker pool (4 is sweet spot for 16-core CPU to avoid resource contention)
-_executor = ThreadPoolExecutor(max_workers=4)
+# Reduced worker pool to 2 tasks. This allows the AI models to use the CPU 
+# cache much more efficiently without stepping on each other's toes.
+_executor = ThreadPoolExecutor(max_workers=2)
 
 def translate_text(text, target_lang):
     if not text or target_lang == 'en': return text
@@ -47,7 +51,8 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 device = 0 if torch.cuda.is_available() else -1
 device_type = "cuda" if torch.cuda.is_available() else "cpu"
-compute_type = "float16" if torch.cuda.is_available() else "int8"
+# int8 is the gold standard for high-performance CPU inference
+compute_type = "int8" if device_type == "cpu" else "float16"
 
 # Models cache
 _models = {}
