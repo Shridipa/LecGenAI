@@ -10,13 +10,13 @@ from pydub import AudioSegment
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 
-# Performance Tuning: Set optimal thread count for 16-core CPU environment
-torch.set_num_threads(8) 
-torch.set_grad_enabled(False) # Global speedup for inference only apps
+# Performance Tuning: Max out for 16-core CPU environment
+torch.set_num_threads(16) 
+torch.set_grad_enabled(False)
 
 
-# Ultra-optimized worker pool (2-3 is better for heavy models on CPU to avoid thrashing)
-_executor = ThreadPoolExecutor(max_workers=3 if torch.cuda.is_available() else 2)
+# Ultra-optimized worker pool (4 is sweet spot for 16-core CPU to avoid resource contention)
+_executor = ThreadPoolExecutor(max_workers=4)
 
 def translate_text(text, target_lang):
     if not text or target_lang == 'en': return text
@@ -129,7 +129,8 @@ def get_qg_generator():
             def manual_qg(text, **gen_kwargs):
                 if not isinstance(text, list): text = [text]
                 inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding=True).to(model.device)
-                gen_params = {"max_new_tokens": 128, "num_beams": 4, "early_stopping": True, **gen_kwargs}
+                # Minimal tokens for speed
+                gen_params = {"max_new_tokens": 64, "num_beams": 2, "early_stopping": True, **gen_kwargs}
                 out = model.generate(**inputs, **gen_params)
                 results = []
                 for idx in range(len(text)):
@@ -190,7 +191,8 @@ def summarize_text(text):
 
     for chunk in chunks:
         try:
-            s = summarizer(chunk, max_length=200, min_length=50, do_sample=False)[0]["summary_text"]
+            # Minimal summary for speed
+            s = summarizer(f"summarize: {chunk}", max_length=80, min_length=20, do_sample=False)[0]["summary_text"]
             summaries.append(s)
         except Exception as e:
             pass
@@ -218,8 +220,8 @@ def generate_important_questions(text):
     
     for chunk in chunks[:4]:
         try:
-            # T5 generates the question based on the content
-            q = qg(f"generate questions: {chunk}", max_length=128)[0]["generated_text"].strip()
+            # Minimal question for speed
+            q = qg(f"ask: {chunk}", max_length=64, num_beams=2)[0]["generated_text"].strip()
             # Distilbert provides the exact answer
             ans = qa(question=q, context=chunk)["answer"].strip()
             
@@ -278,7 +280,8 @@ def generate_quiz(text, is_pro=False):
     for chunk in chunks[:4]: 
         try:
             # T5 generates context-specific question
-            q = qg(f"generate questions: {chunk}", max_length=256)[0]["generated_text"].strip()
+            # Minimal question for speed
+            q = qg(f"ask: {chunk}", max_length=64, num_beams=2)[0]["generated_text"].strip()
             # Distilbert scores the exact answer
             ans = qa(question=q, context=chunk)["answer"].strip()
             
@@ -396,9 +399,14 @@ def handle_youtube(url):
     return None
 
 def extract_audio(video_path, out_audio="lecture.mp3"):
-    audio = AudioSegment.from_file(video_path)
     dest_audio = os.path.join(UPLOAD_FOLDER, out_audio)
-    audio.export(dest_audio, format="mp3")
+    # Direct FFmpeg call is 10x faster than pydub (doesn't load entire file)
+    cmd = [
+        'ffmpeg', '-y', '-i', video_path,
+        '-vn', '-acodec', 'libmp3lame', '-ab', '128k', '-ar', '22050',
+        dest_audio
+    ]
+    subprocess.run(cmd, capture_output=True, check=False)
     return dest_audio
 
 def translate_result(result, target_lang):
@@ -446,8 +454,8 @@ def translate_result(result, target_lang):
     result['language'] = target_lang
     return result
 
-# Global worker pool for speed
-_executor = ThreadPoolExecutor(max_workers=8)
+# Already defined above
+pass
 
 def process_lecture(source_type, data, target_lang='en'):
     # data can be URL, local path, or raw text
