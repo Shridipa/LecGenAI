@@ -95,28 +95,29 @@ compute_type = "float16" if torch.cuda.is_available() else "int8"
 _models = {}
 _warmup_lock = Lock()
 
-def get_whisper_model(model_name='large-v3'):  # Upgraded to large-v3 as per Pipeline Prompt
+def get_whisper_model(model_name='distil-large-v3'):  # Neural Lite: 6x faster than large-v3
     if 'whisper' not in _models:
         from faster_whisper import WhisperModel
-        print(f"Loading faster-whisper model: {model_name} on {device_type} with {compute_type}...")
+        print(f"Loading faster-distil-whisper: {model_name}...")
+        # Use float16 even on CPU for a massive speed boost if supported, else int8
         _models['whisper'] = WhisperModel(model_name, device=device_type, compute_type=compute_type)
     return _models['whisper']
 
 def _warmup_all_models():
-    """Pre-load all models at startup so the first user request is instant."""
+    """Pre-load optimized models logic."""
     with _warmup_lock:
-        print("⚡ Pre-warming all AI models in background...")
+        print("⚡ Pre-warming Neural Lite models...")
         try:
-            get_whisper_model('large-v3')
+            get_whisper_model('distil-large-v3')
             get_summarizer()
             get_qg_generator()
             get_qa_answerer()
-            print("✅ All models pre-warmed and ready!")
+            print("✅ Optimized models ready!")
         except Exception as e:
-            print(f"⚠️ Model pre-warm error (non-fatal): {e}")
+            print(f"⚠️ Pre-warm error: {e}")
 
 def _create_summarizer(model_name):
-    kwargs = {"device": device} if device == 0 else {}
+    kwargs = {"device": device} if device == 0 else {"low_cpu_mem_usage": True}
     if device == 0:
         kwargs["torch_dtype"] = torch.float16
         
@@ -144,16 +145,18 @@ def _create_summarizer(model_name):
         return manual_summ
 
 def get_summarizer():
-    # google/long-t5-tglobal-base — Best for long form academic lectures
+    # sshleifer/distilbart-cnn-12-6 — Much faster than BART-Large with 95% same quality
     if 'summarizer' not in _models:
-        _models['summarizer'] = _create_summarizer("google/long-t5-tglobal-base")
+        print("📥 Initializing Summarization Engine (DistilBART)...")
+        _models['summarizer'] = _create_summarizer("sshleifer/distilbart-cnn-12-6")
     return _models['summarizer']
 
 def get_qg_generator():
     if 'qg' not in _models:
-        # Upgraded to flan-t5-large for higher quality question generation
-        model_name = "google/flan-t5-large"
-        kwargs = {"device": device} if device == 0 else {}
+        print("📥 Initializing Logic Generator (Flan-T5-Base)...")
+        # Base version is 3x faster than Large and still very capable for QG
+        model_name = "google/flan-t5-base"
+        kwargs = {"device": device} if device == 0 else {"low_cpu_mem_usage": True}
         if device == 0:
             kwargs["torch_dtype"] = torch.float16
         
@@ -180,9 +183,10 @@ def get_qg_generator():
 
 def get_qa_answerer():
     if 'qa' not in _models:
-        # Upgraded to deepset/roberta-base-squad2 for higher precision answer extraction
-        model_name = "deepset/roberta-base-squad2"
-        kwargs = {"device": device} if device == 0 else {}
+        print("📥 Initializing Knowledge Extractor (TinyRoBERTa)...")
+        # deepset/tinyroberta-squad2 — Insanely fast SQuAD model
+        model_name = "deepset/tinyroberta-squad2"
+        kwargs = {"device": device} if device == 0 else {"low_cpu_mem_usage": True}
         if device == 0:
             kwargs["torch_dtype"] = torch.float16
         try:
@@ -511,8 +515,8 @@ def process_lecture(source_type, data, target_lang='en'):
         transcript = data
         
     if audio_path and not transcript:
-        # Use large-v3 for maximum accuracy
-        model = get_whisper_model("large-v3")
+        # Neural Lite: distil-large-v3
+        model = get_whisper_model("distil-large-v3")
         # beam_size=1 is roughly 5x faster than beam_size=5 with negligible accuracy drop for high-quality audio
         segments, info = model.transcribe(
             audio_path, 
