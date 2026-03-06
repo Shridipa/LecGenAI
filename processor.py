@@ -1,525 +1,246 @@
+"""
+processor.py — Groq-accelerated lecture processing engine.
+Transcription: Groq Whisper API (whisper-large-v3-turbo)
+LLM Tasks:     Groq LLaMA 3 (llama-3.1-8b-instant) for notes, quiz, flashcards
+"""
+
 import os
-os.environ["HF_HUB_DISABLE_SYMLINKS"] = "1"
-os.environ["OMP_NUM_THREADS"] = "8" # Match physical cores to avoid context-switching/thrashing
-os.environ["MKL_NUM_THREADS"] = "8"
-import subprocess
 import uuid
-import torch
-import nltk
-import random
-from threading import Lock
-from pydub import AudioSegment
-import concurrent.futures
-from concurrent.futures import ThreadPoolExecutor
+import subprocess
+import sys
 
-# Performance Tuning: Target 8 physical cores (standard for 16-thread CPUs)
-# Setting this too high (e.g. 16) causes thread contention and SLOWDOWN.
-torch.set_num_threads(8) 
-torch.set_grad_enabled(False)
+from dotenv import load_dotenv
+load_dotenv()
 
+# Windows Unicode Terminal Stability
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-# Reduced worker pool to 2 tasks. This allows the AI models to use the CPU 
-# cache much more efficiently without stepping on each other's toes.
-_executor = ThreadPoolExecutor(max_workers=2)
+from groq import Groq
 
-def translate_text(text, target_lang):
-    if not text or target_lang == 'en': return text
-    # Reverting to Cloud Google Translate for INSTANT sub-second results
-    try:
-        from deep_translator import GoogleTranslator
-        translator = GoogleTranslator(source='auto', target=target_lang)
-        if len(text) > 4500:
-            chunks = chunk_text(text, max_chars=4000)
-            return " ".join([translator.translate(c) for c in chunks])
-        return translator.translate(text)
-    except Exception as e:
-        print(f"Translation error: {e}")
-        return text
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+client = Groq(api_key=GROQ_API_KEY)
 
-# Download NLTK data
-try:
-    nltk.download("punkt", quiet=True)
-    nltk.download("punkt_tab", quiet=True)
-except Exception:
-    pass
-
+# ── Model Config ────────────────────────────────────────────────────────────────
+TRANSCRIPTION_MODEL = "whisper-large-v3-turbo"   # Fastest Groq Whisper
+LLM_MODEL           = "llama-3.1-8b-instant"      # Ultra-fast Groq LLaMA
 
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "outputs"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-device = 0 if torch.cuda.is_available() else -1
-device_type = "cuda" if torch.cuda.is_available() else "cpu"
-# int8 is the gold standard for high-performance CPU inference
-compute_type = "int8" if device_type == "cpu" else "float16"
 
-# Models cache
-_models = {}
-_warmup_lock = Lock()
-
-def get_whisper_model(model_name='base.en'):  # Turbo: 15x real-time speed
-    if 'whisper' not in _models:
-        from faster_whisper import WhisperModel
-        print(f"Loading Super-Turbo Whisper: {model_name}...")
-        _models['whisper'] = WhisperModel(model_name, device=device_type, compute_type=compute_type)
-    return _models['whisper']
-
-def _warmup_all_models():
-    """Pre-load optimized models logic."""
-    with _warmup_lock:
-        print("⚡ Pre-warming Neural Lite models...")
-        try:
-            get_whisper_model('base.en')
-            get_summarizer()
-            get_qg_generator()
-            get_qa_answerer()
-            print("⚡ Turbo Pipeline Warm!")
-        except Exception as e:
-            print(f"⚠️ Pre-warm error: {e}")
-
-def _create_summarizer(model_name):
-    kwargs = {"device": device} if device == 0 else {"low_cpu_mem_usage": True}
-    if device == 0:
-        kwargs["torch_dtype"] = torch.float16
-        
+# ── Helpers ─────────────────────────────────────────────────────────────────────
+def _llm(prompt: str, system: str = "You are an expert AI educational assistant.", max_tokens: int = 4096) -> str:
+    """Single LLM call to Groq with error handling."""
     try:
-        from transformers import pipeline
-        return pipeline("summarization", model=model_name, framework="pt", **kwargs)
+        resp = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=max_tokens,
+        )
+        return resp.choices[0].message.content.strip()
     except Exception as e:
-        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-        print(f"⚠️ Pipeline creation failed for {model_name}: {e}. Falling back to manual loading.")
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-        if device == 0:
-            model = model.to(device).half()
-            
-        def manual_summ(text, **gen_kwargs):
-            if "max_length" not in gen_kwargs: gen_kwargs["max_length"] = 150
-            if "min_length" not in gen_kwargs: gen_kwargs["min_length"] = 40
-            if "do_sample" not in gen_kwargs: gen_kwargs["do_sample"] = False
-            
-            inputs = tokenizer(text, return_tensors="pt", max_length=1024, truncation=True).to(model.device)
-            summary_ids = model.generate(inputs["input_ids"], **gen_kwargs)
-            summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-            return [{"summary_text": summary}]
-            
-        return manual_summ
+        print(f"Groq LLM error: {e}")
+        return ""
 
-def get_summarizer():
-    # sshleifer/distilbart-cnn-6-6 — Turbo speed (half the layers of 12-6)
-    if 'summarizer' not in _models:
-        print("📥 Initializing Summarizer (Turbo Mode)...")
-        _models['summarizer'] = _create_summarizer("sshleifer/distilbart-cnn-6-6")
-    return _models['summarizer']
-
-def get_qg_generator():
-    if 'qg' not in _models:
-        print("📥 Initializing Question Gen (Turbo Mode)...")
-        # Small version (80M params) — 4-5x faster than Base
-        model_name = "google/flan-t5-small"
-        kwargs = {"device": device} if device == 0 else {"low_cpu_mem_usage": True}
-        if device == 0:
-            kwargs["torch_dtype"] = torch.float16
-        
-        try:
-            from transformers import pipeline
-            _models['qg'] = pipeline("text2text-generation", model=model_name, framework="pt", **kwargs)
-        except Exception:
-            from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-            model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-            if device == 0:
-                model = model.to(device).half()
-            def manual_qg(text, **gen_kwargs):
-                if not isinstance(text, list): text = [text]
-                inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding=True).to(model.device)
-                # Minimal tokens for speed
-                gen_params = {"max_new_tokens": 64, "num_beams": 2, "early_stopping": True, **gen_kwargs}
-                out = model.generate(**inputs, **gen_params)
-                results = []
-                for idx in range(len(text)):
-                    results.append({"generated_text": tokenizer.decode(out[idx], skip_special_tokens=True)})
-                return results
-            _models['qg'] = manual_qg
-    return _models['qg']
-
-def get_qa_answerer():
-    if 'qa' not in _models:
-        print("📥 Initializing Knowledge Extractor (TinyRoBERTa)...")
-        # deepset/tinyroberta-squad2 — Insanely fast SQuAD model
-        model_name = "deepset/tinyroberta-squad2"
-        kwargs = {"device": device} if device == 0 else {"low_cpu_mem_usage": True}
-        if device == 0:
-            kwargs["torch_dtype"] = torch.float16
-        try:
-            from transformers import pipeline
-            _models['qa'] = pipeline("question-answering", model=model_name, framework="pt", **kwargs)
-        except Exception:
-            from transformers import AutoModelForQuestionAnswering, AutoTokenizer
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-            model = AutoModelForQuestionAnswering.from_pretrained(model_name)
-            if device == 0:
-                model = model.to(device).half()
-            def manual_qa(question=None, context=None, **kwargs):
-                inputs = tokenizer(question=question, context=context, return_tensors="pt", truncation=True, max_length=512).to(model.device)
-                with torch.no_grad():
-                    outputs = model(**inputs)
-                start_idx = torch.argmax(outputs.start_logits)
-                end_idx = torch.argmax(outputs.end_logits)
-                tokens = inputs.input_ids[0][start_idx : end_idx + 1]
-                return {'score': 1.0, 'answer': tokenizer.decode(tokens, skip_special_tokens=True)}
-            _models['qa'] = manual_qa
-    return _models['qa']
-
-def chunk_text(text, max_chars=3000):
-    sentences = nltk.sent_tokenize(text)
-    chunks = []
-    current_chunk = ""
-    for sentence in sentences:
-        if len(current_chunk) + len(sentence) + 1 <= max_chars:
-            current_chunk += sentence + " "
-        else:
-            chunks.append(current_chunk.strip())
-            current_chunk = sentence + " "
-    if current_chunk:
-        chunks.append(current_chunk.strip())
-    return chunks
-
-def summarize_text(text):
-    """Generate a clean bullet-point summary exactly as done last month."""
-    if not text: return ""
-    summarizer = get_summarizer()
-    words = text.split()
-    chunks = [" ".join(words[i:i+800]) for i in range(0, len(words), 800)]
-    summaries = []
-
-    for chunk in chunks:
-        try:
-            # Minimal summary for speed
-            s = summarizer(f"summarize: {chunk}", max_length=80, min_length=20, do_sample=False)[0]["summary_text"]
-            summaries.append(s)
-        except Exception as e:
-            pass
-
-    combined_text = " ".join(summaries)
-    sentences = nltk.sent_tokenize(combined_text)
-    seen = set()
-    bullet_points = []
-    for s in sentences:
-        s = s.strip()
-        if len(s) > 20 and s not in seen:
-            bullet_points.append(f"• {s}")
-            seen.add(s)
-    return "\n".join(bullet_points)
-
-def generate_important_questions(text):
-    """Extract Q&A using T5 for generation and distilbert-squad for answering."""
-    if not text: return []
-    qg = get_qg_generator()
-    qa = get_qa_answerer()
-    words = text.split()
-    chunks = [" ".join(words[i:i+800]) for i in range(0, len(words), 800)]
-    qa_list = []
-    seen = set()
-    
-    for chunk in chunks[:4]:
-        try:
-            # Minimal question for speed
-            q = qg(f"ask: {chunk}", max_length=64, num_beams=2)[0]["generated_text"].strip()
-            # Distilbert provides the exact answer
-            ans = qa(question=q, context=chunk)["answer"].strip()
-            
-            if len(ans) > 2 and q.lower() not in seen:
-                qa_list.append({"question": q, "answer": ans, "type": "short"})
-                seen.add(q.lower())
-        except Exception:
-            pass
-
-    # Ensure UI never gets empty array if AI struggles with specific chunks
-    if len(qa_list) < 2:
-        for chunk in chunks[:2]:
-            for fallback_q in ["What is a key concept in this section?", "What does this section explain?"]:
-                try:
-                    ans = qa(question=fallback_q, context=chunk)["answer"].strip()
-                    if len(ans) > 2 and fallback_q.lower() not in seen:
-                        qa_list.append({"question": fallback_q, "answer": ans, "type": "long"})
-                        seen.add(fallback_q.lower())
-                except Exception:
-                    continue
-
-    return qa_list
-
-def generate_notes(text):
-    """Generate notes strictly using the summarizer on chunks, exactly like early Jan."""
-    if not text: return ""
-    summarizer = get_summarizer()
-    words = text.split()
-    chunks = [" ".join(words[i:i+800]) for i in range(0, len(words), 800)]
-    summaries = []
-    
-    for chunk in chunks:
-        try:
-            s = summarizer(chunk, max_length=200, min_length=50, do_sample=False)[0]["summary_text"]
-            summaries.append(s)
-        except Exception:
-            pass
-            
-    notes_parts = ["## 📌 Key Notes"]
-    for s in summaries:
-        notes_parts.append(f"  • {s}")
-        
-    return "\n".join(notes_parts)
-
-def generate_quiz(text, is_pro=False):
-    """Generate quiz components by piping standard text into t5-qa-qg (one month ago behavior)."""
-    if not text: return []
-    qg = get_qg_generator()
-    qa = get_qa_answerer()
-    words = text.split()
-    chunks = [" ".join(words[i:i+800]) for i in range(0, len(words), 800)]
-    questions = []
-    idx = 1
-    
-    seen = set()
-    for chunk in chunks[:4]: 
-        try:
-            # T5 generates context-specific question
-            # Minimal question for speed
-            q = qg(f"ask: {chunk}", max_length=64, num_beams=2)[0]["generated_text"].strip()
-            # Distilbert scores the exact answer
-            ans = qa(question=q, context=chunk)["answer"].strip()
-            
-            if len(ans) > 2 and q.lower() not in seen:
-                questions.append({
-                    "id": idx,
-                    "type": "short",
-                    "question": q,
-                    "correct": ans,
-                    "explanation": f"AI verified answer: {ans}"
-                })
-                seen.add(q.lower())
-                idx += 1
-        except Exception:
-            pass
-            
-    # Guarantee at least one valid quiz question returns via fallback
-    if len(questions) == 0 and chunks:
-        try:
-            q = "What is the primary topic of the lecture?"
-            ans = qa(question=q, context=chunks[0])["answer"].strip()
-            questions.append({
-                "id": idx, "type": "short", "question": q, 
-                "correct": ans, "explanation": "Fallback verification"
-            })
-        except Exception: pass
-            
-    return questions
-
-def generate_flashcards(qa_data):
-    """Convert the dynamically generated explicit Q&A directly into flashcards."""
-    if not qa_data: return []
-    cards = []
-    for item in qa_data[:10]:
-        cards.append({"front": item['question'], "back": item['answer']})
-    return cards
 
 def inject_ffmpeg():
     import shutil
-    # 1. Check if ffmpeg is already in PATH
     ffmpeg_path = shutil.which("ffmpeg")
     if ffmpeg_path:
         return os.path.dirname(ffmpeg_path)
-    
-    # 2. Check common installation paths without walking
-    common_paths = [
-        "C:\\ffmpeg\\bin",
-        "C:\\ffmpeg",
-        os.path.expanduser("~\\Downloads\\ffmpeg\\bin"),
-        os.path.expandvars("%PROGRAMFILES%\\ffmpeg\\bin"),
-        os.path.expandvars("%LOCALAPPDATA%\\ffmpeg\\bin")
-    ]
-    
-    for p in common_paths:
+    for p in ["C:\\ffmpeg\\bin", "C:\\ffmpeg", os.path.expanduser("~\\Downloads\\ffmpeg\\bin")]:
         if os.path.exists(os.path.join(p, "ffmpeg.exe")):
-            if p not in os.environ["PATH"]:
-                os.environ["PATH"] = p + os.pathsep + os.environ["PATH"]
+            if p not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = p + os.pathsep + os.environ.get("PATH", "")
             return p
-            
-    # 3. Try static-ffmpeg as a fallback (fast)
-    try:
-        from static_ffmpeg import run as ffmpeg_run
-        ffmpeg_exe, _ = ffmpeg_run.get_or_fetch_platform_executables_else_raise()
-        p = os.path.dirname(ffmpeg_exe)
-        if p not in os.environ["PATH"]:
-            os.environ["PATH"] = p + os.pathsep + os.environ["PATH"]
-        return p
-    except Exception:
-        pass
-        
     return None
 
 FFMPEG_PATH = inject_ffmpeg()
 
 
-def handle_youtube(url):
+# ── Transcription ────────────────────────────────────────────────────────────────
+def transcribe_audio(audio_path: str) -> str:
+    """Transcribe using Groq Whisper API — fastest path."""
+    try:
+        # Read bytes into memory first — prevents 'I/O on closed file' error
+        # because the Groq SDK may read the file handle lazily after the with-block exits.
+        with open(audio_path, "rb") as f:
+            audio_bytes = f.read()
+
+        filename = os.path.basename(audio_path)
+        resp = client.audio.transcriptions.create(
+            model=TRANSCRIPTION_MODEL,
+            file=(filename, audio_bytes),
+            response_format="text",
+        )
+        return resp if isinstance(resp, str) else resp.text
+    except Exception as e:
+        print(f"Groq transcription error: {e}")
+        return ""
+
+
+# ── YouTube Download ─────────────────────────────────────────────────────────────
+def handle_youtube(url: str) -> str | None:
     import yt_dlp
     uid = str(uuid.uuid4())[:8]
     out_tmpl = os.path.join(UPLOAD_FOLDER, f"yt_{uid}.%(ext)s")
-    
     ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': out_tmpl,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
+        "format": "bestaudio/best",
+        "outtmpl": out_tmpl,
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "96",   # Lower bitrate = smaller file = faster upload to Groq
         }],
-        'quiet': True,
-        'no_warnings': True,
-        'nocheckcertificate': True,
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        }
+        "quiet": True, "no_warnings": True, "nocheckcertificate": True,
+        "http_headers": {"User-Agent": "Mozilla/5.0"},
     }
-    
     if FFMPEG_PATH:
-        ydl_opts['ffmpeg_location'] = FFMPEG_PATH
-        
+        ydl_opts["ffmpeg_location"] = FFMPEG_PATH
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
-            
-        expected_file = os.path.join(UPLOAD_FOLDER, f"yt_{uid}.mp3")
-        if os.path.exists(expected_file):
-            return expected_file
-            
-        # Fallback search
-        for f in os.listdir(UPLOAD_FOLDER):
-            if f.startswith(f"yt_{uid}") and f.endswith(".mp3"):
-                return os.path.join(UPLOAD_FOLDER, f)
+        expected = os.path.join(UPLOAD_FOLDER, f"yt_{uid}.mp3")
+        return expected if os.path.exists(expected) else None
     except Exception as e:
         print(f"yt-dlp error: {e}")
         return None
-    return None
 
-def extract_audio(video_path, out_audio="lecture.mp3"):
-    dest_audio = os.path.join(UPLOAD_FOLDER, out_audio)
-    # Direct FFmpeg call is 10x faster than pydub (doesn't load entire file)
-    cmd = [
-        'ffmpeg', '-y', '-i', video_path,
-        '-vn', '-acodec', 'libmp3lame', '-ab', '128k', '-ar', '22050',
-        dest_audio
-    ]
+
+def extract_audio(video_path: str, out_audio: str = "lecture.mp3") -> str:
+    dest = os.path.join(UPLOAD_FOLDER, out_audio)
+    cmd = ["ffmpeg", "-y", "-i", video_path, "-vn", "-acodec", "libmp3lame", "-ab", "96k", "-ar", "22050", dest]
     subprocess.run(cmd, capture_output=True, check=False)
-    return dest_audio
+    return dest
 
-def translate_result(result, target_lang):
-    if not result or target_lang == 'en':
-        return result
-        
-    print(f"🚀 Speed-Translate started for {target_lang}...")
-    # Grouping all text for batch processing (Massive speedup!)
-    texts_to_translate = []
-    keys_map = []
-    
-    # 1. Collect all translatable strings
-    if 'transcript' in result:
-        texts_to_translate.append(result['transcript'])
-        keys_map.append(('transcript', None))
-    if 'notes' in result:
-        texts_to_translate.append(result['notes'])
-        keys_map.append(('notes', None))
-    if 'qa' in result:
-        for i, item in enumerate(result['qa']):
-            texts_to_translate.append(item['question'])
-            keys_map.append(('qa', i, 'question'))
-            texts_to_translate.append(item['answer'])
-            keys_map.append(('qa', i, 'answer'))
-    if 'quiz' in result:
-        for i, item in enumerate(result['quiz']):
-            texts_to_translate.append(item['question'])
-            keys_map.append(('quiz', i, 'question'))
-            texts_to_translate.append(item['correct'])
-            keys_map.append(('quiz', i, 'correct'))
-            texts_to_translate.append(item['explanation'])
-            keys_map.append(('quiz', i, 'explanation'))
 
-    # 2. Batch Translate
-    translated_list = translate_text(texts_to_translate, target_lang)
-    
-    # 3. Re-assign
-    for i, translation in enumerate(translated_list):
-        path = keys_map[i]
-        if path[0] == 'transcript': result['transcript'] = translation
-        elif path[0] == 'notes': result['notes'] = translation
-        elif path[0] == 'qa': result['qa'][path[1]][path[2]] = translation
-        elif path[0] == 'quiz': result['quiz'][path[1]][path[2]] = translation
-    
-    result['language'] = target_lang
-    return result
+# ── LLM-Powered Analysis ─────────────────────────────────────────────────────────
+def generate_notes(transcript: str) -> str:
+    if not transcript:
+        return ""
+    prompt = f"""Generate extremely concise, bullet-point only lecture notes from this transcript.
+Mimic the style of an extractive summarizer (like DistilBART).
+Start directly with "## 📌 Key Notes".
+Each bullet point should be 1-2 sentences maximum, starting with "  • ".
+Do not include conversational filler.
 
-# Already defined above
-pass
+**Transcript:**
+{transcript[:8000]}"""
+    return _llm(prompt, max_tokens=1000)
 
-def process_lecture(source_type, data, target_lang='en'):
-    # data can be URL, local path, or raw text
+
+def generate_quiz(transcript: str) -> list[dict]:
+    if not transcript:
+        return []
+    prompt = f"""Based on this transcript, generate 5 short-answer quiz questions.
+Mimic the style of a T5 Question Generator and TinyRoBERTa model.
+- Questions should be very direct.
+- Answers must be extremely short (1-5 words if possible).
+- The explanation must be exactly in this format: "AI verified answer: [answer]"
+
+Return exactly as a JSON array, no markdown fences:
+[
+  {{"id":1, "type":"short", "question":"...", "correct":"...", "explanation":"AI verified answer: ..."}},
+  ...
+]
+
+Transcript:
+{transcript[:6000]}"""
+    raw = _llm(prompt, max_tokens=1500)
+    try:
+        import json, re
+        match = re.search(r'\[.*\]', raw, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+    except Exception as e:
+        print(f"Quiz parse error: {e}")
+    # Fallback to guarantee at least one question (matching old behavior)
+    return [{"id": 1, "type": "short", "question": "What is the primary topic of the lecture?", "correct": "The main topic discussed.", "explanation": "Fallback verification"}]
+
+
+def generate_flashcards(transcript: str) -> list[dict]:
+    # The user's old logic passed QA data directly to flashcards.
+    # We will generate extremely short term/definition pairs.
+    if not transcript:
+        return []
+    prompt = f"""From this lecture transcript, create 10 flashcards.
+They must be extremely brief.
+Front: A single term or short question.
+Back: A 1-2 chunk factual answer.
+
+Return exactly as a JSON array, no markdown fences:
+[
+  {{"front":"...", "back":"..."}},
+  ...
+]
+
+Transcript:
+{transcript[:6000]}"""
+    raw = _llm(prompt, max_tokens=1500)
+    try:
+        import json, re
+        match = re.search(r'\[.*\]', raw, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+    except Exception as e:
+        print(f"Flashcard parse error: {e}")
+    return []
+
+
+# ── Main Pipeline ────────────────────────────────────────────────────────────────
+def process_lecture(source_type: str, data: str, target_lang: str = "en") -> dict | None:
     audio_path = None
     transcript = None
-    
+
+    # 1. Resolve source → audio or text
     if source_type == "youtube":
         audio_path = handle_youtube(data)
     elif source_type in ["upload", "video", "audio"]:
-        if data.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
-             audio_path = extract_audio(data, out_audio=f"uploaded_{uuid.uuid4().hex}.mp3")
+        if data.lower().endswith((".mp4", ".avi", ".mov", ".mkv")):
+            audio_path = extract_audio(data, out_audio=f"uploaded_{uuid.uuid4().hex}.mp3")
         else:
-             audio_path = data
-    elif source_type == "text_file":
-        try:
-            with open(data, "r", encoding="utf-8") as f:
-                transcript = f.read()
-        except Exception as e:
-            print(f"Error reading text file: {e}")
-            return None
+            audio_path = data
     elif source_type == "text":
         transcript = data
-        
+    elif source_type == "text_file":
+        with open(data, "r", encoding="utf-8") as f:
+            transcript = f.read()
+
+    # 2. Transcribe with Groq Whisper (fast cloud API)
     if audio_path and not transcript:
-        # Super-Turbo: base.en
-        model = get_whisper_model("base.en")
-        # beam_size=1 + int8 quantization = Maximum CPU throughput
-        segments, info = model.transcribe(
-            audio_path, 
-            beam_size=1, 
-            temperature=0, 
-            vad_filter=True, 
-            task="transcribe"
-        )
-        transcript = "".join([segment.text for segment in segments])
-        
+        print(f"Transcribing with Groq Whisper ({TRANSCRIPTION_MODEL})...")
+        transcript = transcribe_audio(audio_path)
+
     if not transcript:
         return None
-        
-    # Parallelize core tasks using global executor
-    future_qa = _executor.submit(generate_important_questions, transcript)
-    future_notes = _executor.submit(generate_notes, transcript)
-    future_quiz = _executor.submit(generate_quiz, transcript)
-    
-    qa_data = future_qa.result()
-    notes = future_notes.result()
-    quiz_data = future_quiz.result()
-    
-    result = {
-        "transcript": transcript,
-        "qa": qa_data,
-        "notes": notes,
-        "quiz": quiz_data,
-        "flashcards": generate_flashcards(qa_data),
-        "language": "en"
-    }
 
-    # If target_lang was specified initially (backward compatibility), translate it
-    if target_lang != 'en':
-        result = translate_result(result, target_lang)
-        
-    return result
+    print(f"Transcript ready ({len(transcript.split())} words). Running Groq LLM tasks in parallel...")
+
+    # 3. Run all LLM tasks in parallel via threads
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+        f_notes      = ex.submit(generate_notes, transcript)
+        f_quiz       = ex.submit(generate_quiz, transcript)
+        f_flashcards = ex.submit(generate_flashcards, transcript)
+
+        notes      = f_notes.result(timeout=60)      or "• Notes unavailable."
+        quiz_data  = f_quiz.result(timeout=60)       or []
+        flashcards = f_flashcards.result(timeout=60) or []
+
+    return {
+        "transcript":  transcript,
+        "notes":       notes,
+        "qa":          [{"question": q["question"], "answer": q["correct"], "type": "short"} for q in quiz_data],
+        "quiz":        quiz_data if quiz_data else [{"id":1,"question":"No quiz generated","correct":"Retry","explanation":"N/A"}],
+        "flashcards":  flashcards if flashcards else [{"front":"Retry","back":"No cards generated"}],
+        "language":    "en",
+    }

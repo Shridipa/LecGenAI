@@ -1,5 +1,6 @@
 import sys
 import os
+os.environ["HF_HUB_DISABLE_SYMLINKS"] = "1"
 from datetime import datetime
 from typing import Optional, Dict, List, Any
 
@@ -27,6 +28,8 @@ from pydantic import BaseModel, Field, HttpUrl
 from typing import List, Optional, Dict, Any
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 
+UPLOAD_FOLDER = os.path.join(project_root, "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # --- API Models for Documentation ---
 class ProcessingTaskStatus(BaseModel):
     task_id: str = Field(..., example="550e8400-e29b-41d4-a716-446655440000")
@@ -44,10 +47,12 @@ class QuizItem(BaseModel):
     question: str = Field(..., example="Capital of France?")
     options: Optional[List[str]] = Field(None, example=["Paris", "London", "Berlin"])
     correct: str = Field(..., example="Paris")
+    explanation: Optional[str] = Field(None, example="Paris is the capital of France.")
 
 class LectureResult(BaseModel):
     transcript: str = Field(..., example="Full text of the lecture...")
     notes: str = Field(..., example="- Point A\n- Point B")
+    qa: List[Dict[str, Any]] = Field(default_factory=list)
     quiz: List[QuizItem]
     flashcards: List[Flashcard]
     language: str = Field(..., example="en")
@@ -149,14 +154,10 @@ pyq_analyzer = PYQAnalyzer()
 os.makedirs("static/images", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Pre-warm all AI models at startup (background thread — server remains responsive)
-import threading
 
 @app.on_event("startup")
 async def startup_event():
-    thread = threading.Thread(target=processor._warmup_all_models, daemon=True)
-    thread.start()
-    print("🚀 LecGen AI started — model pre-warming running in background...")
+    print("🚀 LecGen AI Engine ONLINE — Groq API ready (no local model warmup needed)")
 
 
 # Enable CORS for React frontend
@@ -218,14 +219,20 @@ async def api_reference():
     with open("static/DOCUMENTATION.html", "r", encoding="utf-8") as f:
         return f.read()
 
-@app.get("/", tags=["System Information"])
-async def root():
-    """Verify that the LecGen AI Engine is online and operational."""
-    return {"status": "online", "engine": "LecGen AI v1.1.0"}
-
 @app.get("/ping")
 async def ping():
     return {"status": "ok"}
+
+# --- SPA (Single Page Application) Serving ---
+@app.get("/", tags=["UI"])
+async def serve_index():
+    """Serve the React frontend home page."""
+    index_path = os.path.join(project_root, "frontend", "dist", "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"status": "online", "message": "Frontend build not found. Run 'npm run build' in frontend folder."}
+
+# SPA route moved to bottom
 
 # --- Auth Endpoints ---
 @app.post("/auth/signup", tags=["Authentication"])
@@ -488,11 +495,15 @@ def analyze_pyq(files: List[UploadFile] = File(default=None), drive_link: str = 
     Perform a Previous Year Question (PYQ) analysis.
     Accepts direct file uploads or a Google Drive link containing multiple documents.
     """
+    import traceback
+    with open("pyq_crash_log.txt", "a") as f:
+        f.write(f"\n--- New Request: files={bool(files)}, drive_link={drive_link} ---\n")
     try:
         temp_files = []
         
         # 1. Handle File Uploads
         if files:
+            with open("pyq_crash_log.txt", "a") as f: f.write(f"Processing {len(files)} files...\n")
             for file in files:
                 file_ext = file.filename.split(".")[-1].lower()
                 if file_ext in ['pdf', 'docx', 'txt', 'csv']:
@@ -500,18 +511,24 @@ def analyze_pyq(files: List[UploadFile] = File(default=None), drive_link: str = 
                     with open(temp_path, "wb") as buffer:
                         shutil.copyfileobj(file.file, buffer)
                     temp_files.append(temp_path)
+            with open("pyq_crash_log.txt", "a") as f: f.write(f"Files saved: {temp_files}\n")
 
         # 2. Handle Google Drive Link
         if drive_link:
+            with open("pyq_crash_log.txt", "a") as f: f.write(f"Processing drive link: {drive_link}\n")
             clean_link = drive_link.strip()
             drive_files = pyq_analyzer.process_drive_link(clean_link, UPLOAD_FOLDER)
             temp_files.extend(drive_files)
+            with open("pyq_crash_log.txt", "a") as f: f.write(f"Drive files: {drive_files}\n")
             
         if not temp_files:
+             with open("pyq_crash_log.txt", "a") as f: f.write("No files provided, raising 400.\n")
              raise HTTPException(status_code=400, detail="No valid files provided. Upload files or provide a valid Google Drive link.")
         
         # 3. Analyze content
+        with open("pyq_crash_log.txt", "a") as f: f.write(f"Starting full analysis on {temp_files}...\n")
         result = pyq_analyzer.perform_full_analysis(temp_files)
+        with open("pyq_crash_log.txt", "a") as f: f.write("Analysis successful!\n")
         
         # Cleanup
         for path in temp_files:
@@ -523,6 +540,8 @@ def analyze_pyq(files: List[UploadFile] = File(default=None), drive_link: str = 
             
         return result
     except Exception as e:
+        with open("pyq_crash_log.txt", "a") as f: 
+            f.write(f"EXCEPTION CAUGHT:\n{traceback.format_exc()}\n")
         # Cleanup on error too
         for path in temp_files:
             if os.path.exists(path):
@@ -532,6 +551,30 @@ def analyze_pyq(files: List[UploadFile] = File(default=None), drive_link: str = 
                     pass
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/{full_path:path}", tags=["UI"], include_in_schema=False)
+async def serve_spa(full_path: str):
+    """
+    Catch-all route that serves index.html for React Router compatibility,
+    unless it's a direct file request in which case it checks the dist folder.
+    """
+    # 1. Skip API routes (already handled by specific endpoints)
+    if full_path.startswith("api/") or full_path in ["docs", "redoc", "openapi.json"]:
+        raise HTTPException(status_code=404, detail="Not found")
+        
+    # 2. Check if file exists in dist
+    dist_path = os.path.join(project_root, "frontend", "dist", full_path)
+    if os.path.exists(dist_path) and os.path.isfile(dist_path):
+        return FileResponse(dist_path)
+        
+    # 3. Handle SPA routes by returning index.html
+    index_path = os.path.join(project_root, "frontend", "dist", "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    
+    # Final fallback
+    raise HTTPException(status_code=404, detail="Not found")
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

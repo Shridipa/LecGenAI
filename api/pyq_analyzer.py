@@ -1,4 +1,12 @@
 import os
+import sys
+# Ensure processor is importable from parent directory
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from processor import _llm
+except ImportError:
+    _llm = None
+
 import pandas as pd
 import re
 import numpy as np
@@ -342,278 +350,31 @@ class PYQAnalyzer:
             return default_df
 
     def get_topic_keywords(self, questions, topics, n_keywords=3):
-        """Generate full descriptive topic names from question content"""
+        """Generate full descriptive topic names using high-speed Groq LLM"""
         df = pd.DataFrame({'Question': questions, 'Topic': topics})
         keywords_map = {}
         
-        # Common domain-specific expansions for better topic names
-        expansions = {
-            # Single letters and common abbreviations
-            'q': 'Question',
-            'r': 'Relation',
-            'w': 'Write',
-            's': 'Statement',
-            'p': 'Program',
-            'n': 'Number',
-            'er': 'Entity-Relationship',
-            'os': 'Operating System',
-            'cpu': 'Central Processing Unit',
-            'ram': 'Random Access Memory',
-            'rom': 'Read Only Memory',
-            'io': 'Input Output',
-            'api': 'Application Programming Interface',
-            'ui': 'User Interface',
-            'ux': 'User Experience',
-            'html': 'HyperText Markup Language',
-            'css': 'Cascading Style Sheets',
-            'xml': 'Extensible Markup Language',
-            'json': 'JavaScript Object Notation',
-            'http': 'HyperText Transfer Protocol',
-            'tcp': 'Transmission Control Protocol',
-            'udp': 'User Datagram Protocol',
-            'ip': 'Internet Protocol',
-            'dns': 'Domain Name System',
-            'url': 'Uniform Resource Locator',
-            'uri': 'Uniform Resource Identifier',
-            
-            # Database terms
-            'database': 'Database Management Systems',
-            'dbms': 'Database Management Systems',
-            'rdbms': 'Relational Database Management Systems',
-            'sql': 'Structured Query Language',
-            'nosql': 'Non-Relational Database',
-            'normalization': 'Database Normalization',
-            'entity': 'Entity-Relationship Model',
-            'relationship': 'Entity-Relationship Model',
-            'query': 'Query Processing',
-            'queries': 'Query Processing',
-            'transaction': 'Transaction Management',
-            'concurrency': 'Concurrency Control',
-            'indexing': 'Database Indexing',
-            'schema': 'Database Schema Design',
-            'acid': 'Atomicity Consistency Isolation Durability',
-            
-            # Programming and algorithms
-            'design': 'System Design',
-            'algorithm': 'Algorithm Design and Analysis',
-            'algorithms': 'Algorithm Design and Analysis',
-            'structure': 'Data Structures',
-            'structures': 'Data Structures',
-            'programming': 'Programming Fundamentals',
-            'oop': 'Object-Oriented Programming',
-            'oops': 'Object-Oriented Programming',
-            'functional': 'Functional Programming',
-            
-            # Computer systems
-            'network': 'Computer Networks',
-            'networking': 'Computer Networks',
-            'operating': 'Operating Systems',
-            'system': 'System Architecture',
-            'systems': 'System Architecture',
-            'compiler': 'Compiler Design',
-            'parsing': 'Parsing Techniques',
-            'processor': 'Processor Architecture',
-            'memory': 'Memory Management',
-            
-            # Software engineering
-            'software': 'Software Engineering',
-            'engineering': 'Software Engineering',
-            'testing': 'Software Testing',
-            'debugging': 'Debugging Techniques',
-            'development': 'Software Development',
-            'agile': 'Agile Methodology',
-            'scrum': 'Scrum Framework',
-            
-            # Security and cryptography
-            'security': 'Information Security',
-            'encryption': 'Cryptography and Encryption',
-            'cryptography': 'Cryptography and Encryption',
-            'authentication': 'Authentication and Authorization',
-            
-            # AI and ML
-            'machine': 'Machine Learning',
-            'learning': 'Machine Learning',
-            'intelligence': 'Artificial Intelligence',
-            'artificial': 'Artificial Intelligence',
-            'neural': 'Neural Networks',
-            'deep': 'Deep Learning',
-            
-            # Modern technologies
-            'web': 'Web Technologies',
-            'cloud': 'Cloud Computing',
-            'computing': 'Cloud Computing',
-            'distributed': 'Distributed Systems',
-            'parallel': 'Parallel Computing',
-            'blockchain': 'Blockchain Technology',
-            'iot': 'Internet of Things',
-        }
-        
-        # Context-aware expansions for ambiguous single letters
-        # These are applied based on surrounding words
-        context_expansions = {
-            'm': {
-                'default': 'Method',
-                'context_rules': [
-                    (['matrix', 'matrices', 'linear'], 'Matrix'),
-                    (['memory', 'ram', 'storage'], 'Memory'),
-                    (['model', 'modeling'], 'Model'),
-                    (['module', 'component'], 'Module'),
-                    (['method', 'function'], 'Method'),
-                    (['management', 'manager'], 'Management'),
-                    (['machine', 'learning'], 'Machine'),
-                ]
-            },
-            'j': {
-                'default': 'Join',
-                'context_rules': [
-                    (['join', 'joins', 'sql', 'query'], 'Join'),
-                    (['java', 'programming'], 'Java'),
-                    (['json', 'data'], 'JSON'),
-                    (['job', 'scheduling', 'process'], 'Job'),
-                ]
-            },
-            'write': {
-                'default': 'Write',
-                'context_rules': [
-                    (['query', 'sql', 'select'], 'Write Query'),
-                    (['program', 'code', 'function'], 'Write Program'),
-                    (['algorithm', 'pseudo'], 'Write Algorithm'),
-                    (['explain', 'describe'], 'Write Explanation'),
-                ]
-            },
-            'k': {
-                'default': 'Key',
-                'context_rules': [
-                    (['key', 'primary', 'foreign'], 'Key'),
-                    (['means', 'cluster'], 'K-Means'),
-                    (['nearest', 'neighbor'], 'K-Nearest'),
-                ]
-            },
-            'b': {
-                'default': 'Binary',
-                'context_rules': [
-                    (['tree', 'search', 'sort'], 'Binary'),
-                    (['boolean', 'logic'], 'Boolean'),
-                    (['byte', 'data'], 'Byte'),
-                ]
-            },
-            't': {
-                'default': 'Table',
-                'context_rules': [
-                    (['table', 'database', 'relation'], 'Table'),
-                    (['tree', 'node', 'graph'], 'Tree'),
-                    (['time', 'complexity'], 'Time'),
-                    (['transaction', 'acid'], 'Transaction'),
-                    (['test', 'testing'], 'Test'),
-                ]
-            },
-            'c': {
-                'default': 'Class',
-                'context_rules': [
-                    (['class', 'object', 'oop'], 'Class'),
-                    (['code', 'program'], 'Code'),
-                    (['complexity', 'algorithm'], 'Complexity'),
-                    (['compiler', 'parse'], 'Compiler'),
-                    (['cache', 'memory'], 'Cache'),
-                ]
-            },
-            'd': {
-                'default': 'Data',
-                'context_rules': [
-                    (['data', 'structure'], 'Data'),
-                    (['database', 'dbms'], 'Database'),
-                    (['diagram', 'model'], 'Diagram'),
-                    (['design', 'pattern'], 'Design'),
-                ]
-            },
-            'e': {
-                'default': 'Entity',
-                'context_rules': [
-                    (['entity', 'relationship', 'er'], 'Entity'),
-                    (['error', 'exception'], 'Error'),
-                    (['encryption', 'security'], 'Encryption'),
-                ]
-            },
-            'f': {
-                'default': 'Function',
-                'context_rules': [
-                    (['function', 'method', 'call'], 'Function'),
-                    (['file', 'system', 'directory'], 'File'),
-                    (['foreign', 'key'], 'Foreign'),
-                ]
-            },
-        }
-        
-        def expand_with_context(keyword, all_keywords):
-            """Intelligently expand single letters based on context"""
-            keyword_lower = keyword.lower()
-            
-            # If it's in context_expansions, use context-aware logic
-            if keyword_lower in context_expansions:
-                rules = context_expansions[keyword_lower]
-                
-                # Check context rules
-                for context_words, expansion in rules['context_rules']:
-                    # If any context word appears in the keyword list
-                    if any(ctx_word in all_keywords for ctx_word in context_words):
-                        return expansion
-                
-                # Return default if no context match
-                return rules['default']
-            
-            # Otherwise use standard expansions
-            return expansions.get(keyword_lower, keyword.capitalize())
-        
         for topic_id in sorted(df['Topic'].unique()):
             topic_questions = df[df['Topic'] == topic_id]['Question'].tolist()
-            if len(topic_questions) == 0:
+            if not topic_questions:
                 continue
+                
+            prompt = (
+                "Given these exam questions, provide a single, short, descriptive topic name "
+                "(2-4 words maximum) that best groups them together. Only reply with the topic name format 'Topic Name', "
+                "nothing else. No markdown, no quotes.\n\nQuestions:\n" + "\n".join(topic_questions[:10])
+            )
             
             try:
-                # Extract meaningful keywords
-                all_words = ' '.join(topic_questions).lower().split()
-                
-                # Filter for meaningful words
-                word_freq = {}
-                for word in all_words:
-                    if word.isalpha():
-                        # Allow word if len > 3 OR it's a known expansion/context-expansion
-                        if len(word) > 3 or word in expansions or word in context_expansions:
-                            word_freq[word] = word_freq.get(word, 0) + 1
-                
-                # Get top keywords
-                top_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
-                keywords = [w[0] for w, _ in top_words]
-                
-                # Expand keywords to full phrases
-                expanded_phrases = []
-                used_expansions = set()
-                
-                for keyword in keywords:
-                    # Use intelligent context-aware expansion
-                    expansion = expand_with_context(keyword, all_words)
-                    
-                    if expansion not in used_expansions:
-                        expanded_phrases.append(expansion)
-                        used_expansions.add(expansion)
-                
-                # Create descriptive topic name
-                if len(expanded_phrases) == 0:
-                    topic_name = f"General Topic {topic_id + 1}"
-                elif len(expanded_phrases) == 1:
-                    topic_name = expanded_phrases[0]
-                elif len(expanded_phrases) == 2:
-                    topic_name = f"{expanded_phrases[0]} and {expanded_phrases[1]}"
+                if _llm:
+                    topic_name = _llm(prompt, max_tokens=15).strip().replace('"', '').replace("'", "")
+                    keywords_map[int(topic_id)] = topic_name
                 else:
-                    # For 3+ phrases, use proper formatting
-                    topic_name = f"{expanded_phrases[0]}, {expanded_phrases[1]} and {expanded_phrases[2]}"
-                
-                keywords_map[int(topic_id)] = topic_name
-                    
+                    keywords_map[int(topic_id)] = f"Topic {topic_id + 1}"
             except Exception as e:
                 print(f"Keyword extraction error: {e}")
-                keywords_map[int(topic_id)] = f"General Topic {topic_id + 1}"
-            
+                keywords_map[int(topic_id)] = f"Topic {topic_id + 1}"
+                
         return keywords_map
 
     def rewrite_vague_question(self, question, topic_name):
@@ -660,19 +421,13 @@ class PYQAnalyzer:
         return question
 
     def generate_answer(self, question):
-        """Generate AI-powered answer (disabled by default for speed)"""
-        if not self.enable_ai_answers:
-            return None
-            
-        self._init_answer_generator()
-        
-        if not self.answer_generator or self.answer_generator is False:
+        """Generate AI-powered answer instantly using Groq LLaMA-3"""
+        if not _llm:
             return None
         
         try:
-            prompt = f"Answer this question in detail: {question}"
-            result = self.answer_generator(prompt, max_length=300, min_length=50)
-            return result[0]['generated_text'] if result else None
+            prompt = f"Answer this exam question directly and concisely in 2-3 sentences: {question}"
+            return _llm(prompt, max_tokens=300)
         except Exception as e:
             print(f"Answer generation error: {e}")
             return None
@@ -878,10 +633,17 @@ class PYQAnalyzer:
                     continue
             
             questions_list.sort(key=lambda x: x['frequency'], reverse=True)
+            top_questions = questions_list[:10]
+            
+            # Generate instant AI answers only for the top questions to save time
+            for q in top_questions:
+                ans = self.generate_answer(q['text'])
+                if ans:
+                    q['ai_answer'] = ans
             
             topic_output = {
                 "topic": topic_name,
-                "questions": questions_list[:10],
+                "questions": top_questions,
                 "resources": {
                     "videos": video_resources if video_resources else [],
                     "articles": article_resources if article_resources else [],
@@ -916,23 +678,23 @@ class PYQAnalyzer:
 
             
         # Calculate summary statistics
-        total_resources = sum(topic.get('resources', {}).get('total_count', 0) for topic in final_output)
-        avg_questions_per_topic = len(questions) / len(final_output) if final_output else 0
+        total_resources = int(sum(topic.get('resources', {}).get('total_count', 0) for topic in final_output))
+        avg_questions_per_topic = float(len(questions) / len(final_output)) if final_output else 0.0
         
         return {
-            "total_questions": len(questions),
-            "topics_found": len(final_output),
+            "total_questions": int(len(questions)),
+            "topics_found": int(len(final_output)),
             "analysis": final_output,
             "summary": {
-                "total_questions_analyzed": len(questions),
-                "number_of_topics": len(final_output),
+                "total_questions_analyzed": int(len(questions)),
+                "number_of_topics": int(len(final_output)),
                 "analysis_status": "Complete" if final_output else "Incomplete",
                 "total_resources_found": total_resources,
                 "average_questions_per_topic": round(avg_questions_per_topic, 1),
                 "classification_breakdown": {
-                    "critical": sum(1 for topic in final_output for q in topic['questions'] if q['importance'] == 'Critical'),
-                    "important": sum(1 for topic in final_output for q in topic['questions'] if q['importance'] == 'Important'),
-                    "standard": sum(1 for topic in final_output for q in topic['questions'] if q['importance'] == 'Standard')
+                    "critical": int(sum(1 for topic in final_output for q in topic['questions'] if q['importance'] == 'Critical')),
+                    "important": int(sum(1 for topic in final_output for q in topic['questions'] if q['importance'] == 'Important')),
+                    "standard": int(sum(1 for topic in final_output for q in topic['questions'] if q['importance'] == 'Standard'))
                 }
             }
         }
